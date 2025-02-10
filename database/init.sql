@@ -1,15 +1,27 @@
--- Create the movies table
+-- Create Movies Table
 CREATE TABLE IF NOT EXISTS movies (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    movieId INT UNIQUE NOT NULL,
     title VARCHAR(255) NOT NULL,
-    release_year INT,
-    genre VARCHAR(100)
+    genres VARCHAR(255)
 );
 
--- Insert sample movie records
-INSERT INTO movies (title, release_year, genre) VALUES
-('Inception', 2010, 'Sci-Fi'),
-('The Godfather', 1972, 'Crime'),
-('Pulp Fiction', 1994, 'Crime');
-ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'example';
-FLUSH PRIVILEGES;
+-- Create Ratings Table
+CREATE TABLE IF NOT EXISTS ratings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    movieId INT NOT NULL,
+    rating FLOAT NOT NULL,
+    timestamp BIGINT,
+    FOREIGN KEY (movieId) REFERENCES movies(movieId) ON DELETE CASCADE
+);
+
+-- Create Tags Table
+CREATE TABLE IF NOT EXISTS tags (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    movieId INT NOT NULL,
+    tag VARCHAR(255),
+    timestamp BIGINT,
+    FOREIGN KEY (movieId) REFERENCES movies(movieId) ON DELETE CASCADE
+);

@@ -1,18 +1,19 @@
 # Use a lightweight Python image
-FROM python:3.9-slim
+FROM python:3.9-alpine
 
-# Set the working directory in the container
 WORKDIR /application
 
-# Copy the requirements file and install Python dependencies
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt pandas
 
-# Copy the rest of the application code
+# Copy the application
 COPY . .
 
-# Expose the port that the Flask app will run on
+# Expose Flask port
 EXPOSE 5000
 
-# Run the Flask app
-CMD ["python", "app.py"]
+# Run the import script before starting Flask
+CMD ["sh", "-c", "python import_data.py && python app.py"]
+
+

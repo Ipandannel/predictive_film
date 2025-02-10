@@ -5,13 +5,19 @@ import os
 app = Flask(__name__)
 
 def get_db_connection():
-    connection = mysql.connector.connect(
-        host=os.environ.get("DATABASE_HOST", "database"),
-        user=os.environ.get("DATABASE_USER", "root"),
-        password=os.environ.get("DATABASE_PASSWORD", "example"),
-        database=os.environ.get("DATABASE_NAME", "moviedb")
-    )
-    return connection
+    try:
+        connection = mysql.connector.connect(
+            host=os.environ.get("DATABASE_HOST", "database"),
+            user=os.environ.get("DATABASE_USER", "root"),
+            password=os.environ.get("DATABASE_PASSWORD", "example"),
+            database=os.environ.get("DATABASE_NAME", "moviedb"),
+            connection_timeout=5  # Avoids hanging if the DB is down
+        )
+        return connection
+    except mysql.connector.Error as err:
+        print(f"Database connection failed: {err}")
+        return None
+
 
 @app.route("/")
 def index():
@@ -20,6 +26,9 @@ def index():
 @app.route("/movies")
 def get_movies():
     conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Failed to connect to the database"}), 500  # Return a proper HTTP error
+
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT * FROM movies;")
     movies = cursor.fetchall()

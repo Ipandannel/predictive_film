@@ -9,17 +9,24 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/mysql  # Persistent storage
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app_network
+    command: --init-file /docker-entrypoint-initdb.d/init.sql  # Ensures `init.sql` runs on every start
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
 
   application:
     build: ./application
     ports:
       - "5000:5000"
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     environment:
       - DATABASE_HOST=database
       - DATABASE_USER=root
@@ -27,8 +34,11 @@ services:
       - DATABASE_NAME=moviedb
     volumes:
       - ./application:/application
+      - ./ml-latest-small:/application/ml-latest-small  # Mount dataset inside container
     networks:
       - app_network
+
+
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
