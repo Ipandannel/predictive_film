@@ -19,8 +19,22 @@ def connect_db():
     """Establishes a connection to the MySQL database."""
     return mysql.connector.connect(**DB_CONFIG)
 
+def is_data_imported(table_name):
+    """Checks if the specified table already contains data."""
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return count > 0  # Returns True if data exists, False otherwise
+
 def import_movies():
-    """Imports movie data into the MySQL database."""
+    """Imports movie data into the MySQL database if not already imported."""
+    if is_data_imported("movies"):
+        print("✅ Movies data already exists. Skipping import.")
+        return
+    
     conn = connect_db()
     cursor = conn.cursor()
     
@@ -38,7 +52,11 @@ def import_movies():
     print("✅ Movies imported successfully!")
 
 def import_ratings():
-    """Imports user ratings into the MySQL database with proper type conversion."""
+    """Imports user ratings into the MySQL database if not already imported."""
+    if is_data_imported("ratings"):
+        print("✅ Ratings data already exists. Skipping import.")
+        return
+    
     conn = connect_db()
     cursor = conn.cursor()
 
@@ -47,7 +65,7 @@ def import_ratings():
     # Ensure correct data types
     df["userId"] = df["userId"].astype(int)
     df["movieId"] = df["movieId"].astype(int)
-    df["rating"] = df["rating"].astype(float)  # Convert rating to standard Python float
+    df["rating"] = df["rating"].astype(float)  # Convert rating to float
     df["timestamp"] = df["timestamp"].astype(int)  # Convert timestamp to int
 
     for _, row in df.iterrows():
@@ -63,7 +81,11 @@ def import_ratings():
 
 
 def import_tags():
-    """Imports movie tags into the MySQL database with proper type conversion."""
+    """Imports movie tags into the MySQL database if not already imported."""
+    if is_data_imported("tags"):
+        print("✅ Tags data already exists. Skipping import.")
+        return
+    
     conn = connect_db()
     cursor = conn.cursor()
 
@@ -87,8 +109,10 @@ def import_tags():
 
 
 if __name__ == "__main__":
-    print("📥 Importing MovieLens dataset...")
+    print("📥 Checking if data import is needed...")
+
     import_movies()
     import_ratings()
     import_tags()
-    print("🎉 Data import completed!")
+
+    print("🎉 Data import process completed!")
