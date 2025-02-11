@@ -32,30 +32,40 @@
 
     <div id="results"></div>
 
-    <script>
-        async function searchMovies() {
-            const query = document.getElementById("searchInput").value.trim();
-            const resultsDiv = document.getElementById("results");
-
-            if (query.length === 0) {
-                resultsDiv.innerHTML = "";
-                return;
-            }
-
-            const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-            const movies = await response.json();
-
-            resultsDiv.innerHTML = movies.map(movie => `
-                <div class="movie-card">
-                    <img src="${movie.poster_url || 'https://via.placeholder.com/80x120'}" alt="Poster">
-                    <div>
-                        <h5>${movie.title}</h5>
-                        <p><strong>Year:</strong> ${movie.release_year || 'N/A'}</p>
-                        <p><strong>Genre:</strong> ${movie.genre || 'N/A'}</p>
-                    </div>
-                </div>
-            `).join("");
-        }
-    </script>
+      <script>
+       async function searchMovies() {
+           const query = document.getElementById("searchInput").value.trim();
+           const resultsDiv = document.getElementById("results");
+   
+           if (query.length === 0) {
+               resultsDiv.innerHTML = "<p class='text-muted'>Start typing to search...</p>";
+               return;
+           }
+   
+           try {
+               const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+               if (!response.ok) throw new Error("Failed to fetch movies.");
+               
+               const movies = await response.json();
+   
+               if (movies.length === 0) {
+                   resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
+                   return;
+               }
+   
+               resultsDiv.innerHTML = movies.map(movie => `
+                   <div class="movie-card">
+                       <div>
+                           <h5>${movie.title}</h5>
+                           <p><strong>Genre:</strong> ${movie.genre}</p>
+                       </div>
+                   </div>
+               `).join("");
+           } catch (error) {
+               resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+           }
+       }
+   </script>
+ 
 </body>
 </html>

@@ -7,12 +7,15 @@ WORKDIR /application
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt pandas
 
-# Copy the application
+# Copy the application files
 COPY . .
+
+# Copy and make entrypoint.sh executable
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose Flask port
 EXPOSE 5000
 
-# Run the import script first, then start Flask in a separate process
-CMD ["sh", "-c", "python import_data.py && exec python app.py"]
-
+# Use the entrypoint script
+CMD ["/entrypoint.sh"]

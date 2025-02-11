@@ -26,24 +26,31 @@ def index():
 @app.route("/search", methods=["GET"])
 def search_movies():
     query = request.args.get("q", "").strip()
-    
+
     if not query:
         return jsonify([])  # Return an empty list if no query
-    
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
+
     cursor.execute(
-        "SELECT title, release_year, genre, poster_url FROM movies WHERE title LIKE %s LIMIT 10;",
-        (f"%{query}%",)
+        """
+        SELECT title, 
+               IFNULL(genres, 'Unknown') AS genre
+        FROM movies 
+        WHERE LOWER(title) LIKE LOWER(%s) 
+        LIMIT 10;
+        """,
+        (f"%{query}%",),
     )
-    
+
     movies = cursor.fetchall()
-    
+
     cursor.close()
     conn.close()
-    
+
     return jsonify(movies)
+
 @app.route("/movies")
 def get_movies():
     conn = get_db_connection()
