@@ -13,7 +13,6 @@ COPY . .
 # Expose Flask port
 EXPOSE 5000
 
-# Run the import script before starting Flask
-CMD ["sh", "-c", "python import_data.py && python app.py"]
-
+# Run the import script first, then start Flask in a separate process
+CMD ["sh", "-c", "python import_data.py && exec python app.py"]
 

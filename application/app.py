@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, render_template
 import mysql.connector
 import os
 
@@ -21,8 +21,29 @@ def get_db_connection():
 
 @app.route("/")
 def index():
-    return "Hello, this is your film festival app!"
+    return render_template("index.html")  # Serve the frontend
 
+@app.route("/search", methods=["GET"])
+def search_movies():
+    query = request.args.get("q", "").strip()
+    
+    if not query:
+        return jsonify([])  # Return an empty list if no query
+    
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    cursor.execute(
+        "SELECT title, release_year, genre, poster_url FROM movies WHERE title LIKE %s LIMIT 10;",
+        (f"%{query}%",)
+    )
+    
+    movies = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    return jsonify(movies)
 @app.route("/movies")
 def get_movies():
     conn = get_db_connection()
