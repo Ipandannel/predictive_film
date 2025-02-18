@@ -10,12 +10,11 @@ services:
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql  # Persistent storage
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql  # Ensure init.sql runs at first startup
     networks:
       - app_network
-    command: --init-file /docker-entrypoint-initdb.d/init.sql  # Ensures `init.sql` runs on every start
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysql", "-uroot", "-pexample", "-e", "SELECT 1"]
       interval: 10s
       retries: 5
 

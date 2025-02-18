@@ -1,3 +1,5 @@
+CREATE DATABASE IF NOT EXISTS moviedb;
+USE moviedb;
 -- Create Movies Table
 CREATE TABLE IF NOT EXISTS movies (
     id INT AUTO_INCREMENT PRIMARY KEY,
