@@ -27,3 +27,10 @@ CREATE TABLE IF NOT EXISTS tags (
     timestamp BIGINT,
     FOREIGN KEY (movieId) REFERENCES movies(movieId) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    movieId INT UNIQUE NOT NULL,
+    imdbId INT NOT NULL,
+    tmdbId INT NULL, 
+    FOREIGN KEY (movieId) REFERENCES movies(movieId) ON DELETE CASCADE
+);

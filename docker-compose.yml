@@ -9,10 +9,12 @@ services:
     ports:
       - "3307:3306"
     volumes:
-      - db_data:/var/lib/mysql  # Persistent storage
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql  # Ensure init.sql runs at first startup
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./ml-latest-small:/dataset # Mount dataset inside initdb directory
     networks:
       - app_network
+    command: --secure-file-priv="/dataset" --local-infile=1 # Allow unrestricted file import
     healthcheck:
       test: ["CMD", "mysql", "-uroot", "-pexample", "-e", "SELECT 1"]
       interval: 10s
@@ -33,7 +35,7 @@ services:
       - DATABASE_NAME=moviedb
     volumes:
       - ./application:/application
-      - ./ml-latest-small:/application/ml-latest-small  # Mount dataset inside container
+      - ./ml-latest-small:/dataset  # Mount dataset inside container
     networks:
       - app_network
 
