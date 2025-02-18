@@ -1,6 +1,7 @@
 import mysql.connector
 import os
 import time
+import csv
 
 # Get database connection details from environment variables
 DB_CONFIG = {
@@ -19,19 +20,25 @@ def connect_db(retries=5, delay=5):
     """Attempts to connect to the database, retrying if it fails."""
     for attempt in range(retries):
         try:
+            # Connect without specifying the database
             conn = mysql.connector.connect(
-                host=os.environ.get("DATABASE_HOST", "database"),
-                user=os.environ.get("DATABASE_USER", "root"),
-                password=os.environ.get("DATABASE_PASSWORD", "example"),
-                database=os.environ.get("DATABASE_NAME", "moviedb"),
-                allow_local_infile=True  
+                host=DB_CONFIG["host"],
+                user=DB_CONFIG["user"],
+                password=DB_CONFIG["password"],
+                allow_local_infile=True
             )
+            cursor = conn.cursor()
+            # Create the database if it doesn't exist
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
+            cursor.close()
+            conn.close()
+            # Connect to the newly created database
+            conn = mysql.connector.connect(**DB_CONFIG, allow_local_infile=True)
             return conn
         except mysql.connector.Error as err:
             print(f"Database connection failed: {err}. Retrying in {delay} seconds...")
             time.sleep(delay)
     raise RuntimeError("Database connection failed after multiple attempts.")
-
 def is_data_imported(table_name):
     """Checks if data exists in the table."""
     conn = connect_db()
@@ -51,14 +58,15 @@ def import_movies():
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = f"""
+    query = """
     LOAD DATA INFILE '/dataset/movies.csv' 
     INTO TABLE movies
     FIELDS TERMINATED BY ',' 
     ENCLOSED BY '"' 
     LINES TERMINATED BY '\n'
     IGNORE 1 ROWS
-    (movieId, title, genres);
+    (movieId, title, @genres)  -- Ignore the genres column
+    SET title = TRIM(title);
     """
     
     cursor.execute(query)
@@ -66,6 +74,49 @@ def import_movies():
     cursor.close()
     conn.close()
     print("✅ Movies imported successfully!")
+
+def import_genres():
+    """Extract unique genres from movies.csv and insert them into the genres table."""
+    print("📥 Extracting and importing genres...")
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    genre_set = set()
+    movie_genres = []
+
+    # Read genres directly from movies.csv
+    with open("/dataset/movies.csv", "r", encoding="utf-8") as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip header
+
+        for row in reader:
+            movieId = int(row[0])
+            genres = row[2].split("|")  # Column index 2 contains genres
+
+            for genre in genres:
+                genre = genre.strip()
+                if genre:
+                    genre_set.add(genre)  # Store unique genres
+                    movie_genres.append((movieId, genre))  # Store (movieId, genre)
+
+    # Insert unique genres
+    for genre in genre_set:
+        cursor.execute("INSERT IGNORE INTO genres (genre) VALUES (%s)", (genre,))
+
+    conn.commit()
+
+    # Insert into movie_genres linking table
+    for movieId, genre in movie_genres:
+        cursor.execute(
+            "INSERT IGNORE INTO movie_genres (movieId, genreId) SELECT %s, id FROM genres WHERE genre=%s",
+            (movieId, genre)
+        )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("✅ Genres imported successfully!")
 
 def import_ratings():
     """Imports ratings data using `LOAD DATA INFILE`."""
@@ -76,7 +127,7 @@ def import_ratings():
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = f"""
+    query = """
     LOAD DATA INFILE '/dataset/ratings.csv' 
     INTO TABLE ratings
     FIELDS TERMINATED BY ',' 
@@ -84,7 +135,6 @@ def import_ratings():
     LINES TERMINATED BY '\n'
     IGNORE 1 ROWS
     (userId, movieId, rating, timestamp);
-
     """
     
     cursor.execute(query)
@@ -102,7 +152,7 @@ def import_tags():
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = f"""
+    query = """
     LOAD DATA INFILE '/dataset/tags.csv' 
     INTO TABLE tags
     FIELDS TERMINATED BY ',' 
@@ -117,6 +167,7 @@ def import_tags():
     cursor.close()
     conn.close()
     print("✅ Tags imported successfully!")
+
 def import_links():
     """Imports links using `LOAD DATA LOCAL INFILE`, allowing imports from any location."""
     if is_data_imported("links"):
@@ -126,7 +177,7 @@ def import_links():
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = f"""
+    query = """
     LOAD DATA LOCAL INFILE '/dataset/links.csv'
     INTO TABLE links
     FIELDS TERMINATED BY ',' 
@@ -146,12 +197,11 @@ def import_links():
         cursor.close()
         conn.close()
 
-
-
 if __name__ == "__main__":
     print("📥 Checking if data import is needed...")
 
     import_movies()
+    import_genres()  # NEW FUNCTION to handle genres
     import_ratings()
     import_tags()
     import_links()
