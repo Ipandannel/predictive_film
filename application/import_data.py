@@ -16,11 +16,11 @@ MOVIES_CSV = "/dataset/movies.csv"
 RATINGS_CSV = "/dataset/ratings.csv"
 TAGS_CSV = "/dataset/tags.csv"
 
-def connect_db(retries=5, delay=5):
-    """Attempts to connect to the database, retrying if it fails."""
+def connect_db(retries=10, delay=5):
+    """Attempts to connect to MySQL, retrying if it fails, and ensures tables exist."""
     for attempt in range(retries):
         try:
-            # Connect without specifying the database
+            # Step 1: Connect to MySQL without specifying the database
             conn = mysql.connector.connect(
                 host=DB_CONFIG["host"],
                 user=DB_CONFIG["user"],
@@ -28,16 +28,32 @@ def connect_db(retries=5, delay=5):
                 allow_local_infile=True
             )
             cursor = conn.cursor()
-            # Create the database if it doesn't exist
+
+            # Step 2: Ensure the database exists
             cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
             cursor.close()
             conn.close()
-            # Connect to the newly created database
+
+            # Step 3: Now connect to the database
             conn = mysql.connector.connect(**DB_CONFIG, allow_local_infile=True)
-            return conn
+            cursor = conn.cursor()
+
+            # Step 4: Ensure required tables exist
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+
+            # If no tables exist, MySQL is likely still initializing
+            if not tables:
+                print("⚠️ No tables found. Retrying...")
+                raise mysql.connector.Error("Tables not initialized")
+
+            cursor.close()
+            return conn  # ✅ Connection successful!
+
         except mysql.connector.Error as err:
             print(f"Database connection failed: {err}. Retrying in {delay} seconds...")
             time.sleep(delay)
+
     raise RuntimeError("Database connection failed after multiple attempts.")
 def is_data_imported(table_name):
     """Checks if data exists in the table."""

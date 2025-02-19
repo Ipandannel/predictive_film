@@ -3,18 +3,19 @@ version: "3.8"
 services:
   database:
     image: mysql:8.0
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: example
-      MYSQL_DATABASE: moviedb
+      MYSQL_DATABASE: moviedb  # Only needed for first-time setup
     ports:
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./ml-latest-small:/dataset # Mount dataset inside initdb directory
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql  # Ensures MySQL runs init.sql
+      - ./ml-latest-small:/dataset  # Mount dataset inside container
     networks:
       - app_network
-    command: --secure-file-priv="/dataset" --local-infile=1 # Allow unrestricted file import
+    command: --init-file /docker-entrypoint-initdb.d/init.sql --secure-file-priv="/dataset" --local-infile=1
     healthcheck:
       test: ["CMD", "mysql", "-uroot", "-pexample", "-e", "SELECT 1"]
       interval: 10s
@@ -39,14 +40,12 @@ services:
     networks:
       - app_network
 
-
-
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     ports:
-      - "8081:80"  # Access phpMyAdmin at http://localhost:8080
+      - "8081:80"
     environment:
-      PMA_HOST: database        # This should match your MySQL service name
+      PMA_HOST: database
       PMA_USER: root
       PMA_PASSWORD: example
     depends_on:
