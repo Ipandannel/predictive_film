@@ -5,7 +5,8 @@ USE moviedb;
 CREATE TABLE IF NOT EXISTS movies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     movieId INT UNIQUE NOT NULL,
-    title VARCHAR(255) NOT NULL
+    title VARCHAR(255) NOT NULL,
+    avg_rating FLOAT DEFAULT NULL  -- New column for average rating
 );
 
 -- Create Genres Table (Stores Unique Genres)

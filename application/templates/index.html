@@ -26,46 +26,93 @@
 <body class="container mt-4">
     <h1 class="text-center">🎬 Movie Search</h1>
 
-    <div class="mb-4">
+    <!-- Search Input -->
+    <div class="mb-3">
         <input type="text" id="searchInput" class="form-control" placeholder="Search for a movie..." oninput="searchMovies()">
     </div>
 
+    <!-- Filters for Genre and Rating -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="genreSelect" class="form-label">Genre:</label>
+            <select id="genreSelect" class="form-control" onchange="searchMovies()">
+                <option value="">All Genres</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="minRating" class="form-label">Min Rating:</label>
+            <input type="number" id="minRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
+        </div>
+        <div class="col-md-4">
+            <label for="maxRating" class="form-label">Max Rating:</label>
+            <input type="number" id="maxRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
+        </div>
+    </div>
+
+    <!-- Movie Results -->
     <div id="results"></div>
 
-      <script>
-       async function searchMovies() {
-           const query = document.getElementById("searchInput").value.trim();
-           const resultsDiv = document.getElementById("results");
-   
-           if (query.length === 0) {
-               resultsDiv.innerHTML = "<p class='text-muted'>Start typing to search...</p>";
-               return;
-           }
-   
-           try {
-               const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
-               if (!response.ok) throw new Error("Failed to fetch movies.");
-               
-               const movies = await response.json();
-   
-               if (movies.length === 0) {
-                   resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
-                   return;
-               }
-   
-               resultsDiv.innerHTML = movies.map(movie => `
-                   <div class="movie-card">
-                       <div>
-                           <h5>${movie.title}</h5>
-                           <p><strong>Genre:</strong> ${movie.genre}</p>
-                       </div>
-                   </div>
-               `).join("");
-           } catch (error) {
-               resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
-           }
-       }
-   </script>
- 
+    <script>
+    // Fetch and Populate Genres Dropdown
+    document.addEventListener("DOMContentLoaded", fetchGenres);
+
+    async function fetchGenres() {
+        try {
+            const response = await fetch("/genres"); // Fetch available genres from API
+            if (!response.ok) throw new Error("Failed to load genres.");
+
+            const genres = await response.json();
+            const genreSelect = document.getElementById("genreSelect");
+
+            genres.forEach(genre => {
+                const option = document.createElement("option");
+                option.value = genre;
+                option.textContent = genre;
+                genreSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Error loading genres:", error.message);
+        }
+    }
+
+    // Fetch and Display Filtered Movie Results
+    async function searchMovies() {
+        const query = document.getElementById("searchInput").value.trim();
+        const genre = document.getElementById("genreSelect").value;
+        const minRating = document.getElementById("minRating").value;
+        const maxRating = document.getElementById("maxRating").value;
+        const resultsDiv = document.getElementById("results");
+
+        try {
+            const url = new URL("/search", window.location.origin);
+            if (query) url.searchParams.append("q", query);
+            if (genre) url.searchParams.append("genre", genre);
+            if (minRating) url.searchParams.append("min_rating", minRating);
+            if (maxRating) url.searchParams.append("max_rating", maxRating);
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Failed to fetch movies.");
+
+            const movies = await response.json();
+            if (movies.length === 0) {
+                resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
+                return;
+            }
+
+            resultsDiv.innerHTML = movies.map(movie => `
+                <div class="movie-card">
+                    <div>
+                        <h5>${movie.title}</h5>
+                        <p><strong>Genre:</strong> ${movie.genre}</p>
+                        <p><strong>Average Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
+                    </div>
+                </div>
+            `).join("");
+        } catch (error) {
+            resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+        }
+    }
+    </script>
+
 </body>
 </html>

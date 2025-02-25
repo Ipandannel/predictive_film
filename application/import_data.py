@@ -90,7 +90,25 @@ def import_movies():
     cursor.close()
     conn.close()
     print("✅ Movies imported successfully!")
+def update_average_ratings():
+    """Updates the avg_rating column in the movies table."""
+    conn = connect_db()
+    cursor = conn.cursor()
 
+    update_query = """
+    UPDATE movies
+    SET avg_rating = (
+        SELECT AVG(rating)
+        FROM ratings
+        WHERE ratings.movieId = movies.movieId
+    );
+    """
+
+    cursor.execute(update_query)
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print("✅ Average ratings updated successfully!")
 def import_genres():
     """Extract unique genres from movies.csv and insert them into the genres table."""
     print("📥 Extracting and importing genres...")
@@ -221,5 +239,6 @@ if __name__ == "__main__":
     import_ratings()
     import_tags()
     import_links()
+    update_average_ratings()
 
     print("🎉 Data import process completed!")
