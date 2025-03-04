@@ -29,6 +29,8 @@ def search_movies():
     genre = request.args.get("genre", "").strip()
     min_rating = request.args.get("min_rating", "").strip()
     max_rating = request.args.get("max_rating", "").strip()
+    min_release_date = request.args.get("min_release_date", "").strip()
+    max_release_date = request.args.get("max_release_date", "").strip()
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -36,7 +38,9 @@ def search_movies():
     sql_query = """
         SELECT movies.title, 
                IFNULL(GROUP_CONCAT(DISTINCT genres.genre SEPARATOR ', '), 'Unknown') AS genre,
-               IFNULL(movies.avg_rating, 0) AS avg_rating
+               IFNULL(movies.avg_rating, 0) AS avg_rating,
+               IFNULL(movies.release_date, 'Unknown') AS release_date,
+               IFNULL(movies.poster_url, '') AS poster_url
         FROM movies
         LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
         LEFT JOIN genres ON movie_genres.genreId = genres.id
@@ -62,6 +66,14 @@ def search_movies():
         sql_query += " AND movies.avg_rating <= %s"
         query_params.append(float(max_rating))
 
+    # Filter by release date range
+    if min_release_date:
+        sql_query += " AND movies.release_date >= %s"
+        query_params.append(min_release_date)
+    if max_release_date:
+        sql_query += " AND movies.release_date <= %s"
+        query_params.append(max_release_date)
+
     sql_query += " GROUP BY movies.movieId LIMIT 10;"
 
     cursor.execute(sql_query, tuple(query_params))
@@ -73,6 +85,8 @@ def search_movies():
     return jsonify(movies)
 
 
+
+
 @app.route("/movies")
 def get_movies():
     conn = get_db_connection()
@@ -80,7 +94,13 @@ def get_movies():
         return jsonify({"error": "Failed to connect to the database"}), 500
 
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT movieId, title, IFNULL(avg_rating, 0) AS avg_rating FROM movies;")
+    cursor.execute("""
+        SELECT movieId, title, 
+               IFNULL(avg_rating, 0) AS avg_rating, 
+               IFNULL(release_date, 'Unknown') AS release_date,
+               IFNULL(poster_url, '') AS poster_url
+        FROM movies;
+    """)
     movies = cursor.fetchall()
     cursor.close()
     conn.close()

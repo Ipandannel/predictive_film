@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS movies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     movieId INT UNIQUE NOT NULL,
     title VARCHAR(255) NOT NULL,
+    release_date DATE DEFAULT NULL,  -- Added release date column
+    poster_url VARCHAR(500) DEFAULT NULL,  -- Added poster URL column
     avg_rating FLOAT DEFAULT NULL  -- New column for average rating
 );
 

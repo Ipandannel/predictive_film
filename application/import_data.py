@@ -66,7 +66,7 @@ def is_data_imported(table_name):
     return count > 0  # True if data exists, False otherwise
 
 def import_movies():
-    """Imports movie data using MySQL's `LOAD DATA INFILE` for efficiency."""
+    """Imports movie data including release_date and poster_url."""
     if is_data_imported("movies"):
         print("✅ Movies data already exists. Skipping import.")
         return
@@ -81,15 +81,22 @@ def import_movies():
     ENCLOSED BY '"' 
     LINES TERMINATED BY '\n'
     IGNORE 1 ROWS
-    (movieId, title, @genres)  -- Ignore the genres column
-    SET title = TRIM(title);
+    (movieId, title, @genres, @release_date, @poster_url)
+    SET 
+        title = TRIM(title),
+        release_date = CASE 
+            WHEN @release_date = 'N/A' THEN NULL 
+            ELSE STR_TO_DATE(@release_date, '%d-%b-%y') 
+        END,
+        poster_url = TRIM(@poster_url);
     """
     
     cursor.execute(query)
     conn.commit()
     cursor.close()
     conn.close()
-    print("✅ Movies imported successfully!")
+    print("✅ Movies imported successfully with release_date and poster_url!")
+
 def update_average_ratings():
     """Updates the avg_rating column in the movies table."""
     conn = connect_db()
