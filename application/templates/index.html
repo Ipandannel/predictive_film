@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Search</title>
+    <title>Movie Search Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
     <style>
         /* General Dark Mode Styling */
         body {
-            background-color: #1E1E1E; /* Dark background */
-            color: #EAEAEA; /* Light text for contrast */
+            background-color: #1E1E1E;
+            color: #EAEAEA;
             font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 20px;
@@ -21,36 +21,49 @@
             text-align: center;
             font-size: 32px;
             font-weight: bold;
-            color: #FFD700; /* Gold text for contrast */
+            color: #FFD700;
             margin-bottom: 20px;
         }
 
-        /* Search & Filters */
-        input, select {
+        /* Search Bar */
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        input {
             border-radius: 5px;
             border: 1px solid #555;
-            background-color: #333; /* Dark input background */
+            background-color: #333;
             color: #EAEAEA;
             padding: 8px;
+            width: 300px;
         }
-        input::placeholder {
-            color: #999;
+
+        /* Filters Section */
+        #filters {
+            display: none; /* Initially hidden */
+            background: #2C2C2C;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
 
         /* Movie Results */
         #results {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Grid layout */
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
             padding: 20px;
         }
 
         /* Movie Cards */
         .movie-card {
-            background: #2C2C2C; /* Darker card background */
+            background: #2C2C2C;
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0px 5px 10px rgba(255, 255, 255, 0.1); /* Subtle white glow */
+            box-shadow: 0px 5px 10px rgba(255, 255, 255, 0.1);
             text-align: center;
             padding: 15px;
             transition: transform 0.2s ease-in-out;
@@ -62,7 +75,6 @@
             box-shadow: 0px 8px 15px rgba(255, 255, 255, 0.2);
         }
 
-        /* Movie Posters */
         .movie-card img {
             width: 100%;
             height: 250px;
@@ -70,66 +82,49 @@
             border-radius: 5px;
         }
 
-        /* Movie Details */
-        .movie-card h5 {
-            margin-top: 10px;
-            font-size: 18px;
-            font-weight: bold;
-            color: #FFD700; /* Gold text */
-        }
-
-        .movie-card p {
-            font-size: 14px;
-            color: #CCC;
-            margin: 5px 0;
-        }
-
         /* Responsive Design */
-        @media (max-width: 992px) {
-            #results {
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* 2 per row */
-            }
-        }
-
         @media (max-width: 768px) {
             #results {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* 1 per row */
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             }
         }
     </style>
 </head>
 <body class="container mt-4">
 
-    <h1 class="text-center">🎬 Movie Search</h1>
+    <h1 class="text-center">🎬 Film Dashboard</h1>
 
     <!-- Search Input -->
-    <div class="mb-3">
+    <div class="search-container">
         <input type="text" id="searchInput" class="form-control" placeholder="Search for a movie..." oninput="searchMovies()">
+        <button class="btn btn-warning ms-2" onclick="toggleFilters()">🔍 Search Filters</button>
     </div>
 
-    <!-- Filters for Genre, Rating, and Release Date -->
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <label for="genreSelect" class="form-label">Genre:</label>
-            <select id="genreSelect" class="form-control" onchange="searchMovies()">
-                <option value="">All Genres</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="minRating" class="form-label">Min Rating:</label>
-            <input type="number" id="minRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
-        </div>
-        <div class="col-md-2">
-            <label for="maxRating" class="form-label">Max Rating:</label>
-            <input type="number" id="maxRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
-        </div>
-        <div class="col-md-2">
-            <label for="minReleaseDate" class="form-label">From:</label>
-            <input type="date" id="minReleaseDate" class="form-control" onchange="searchMovies()">
-        </div>
-        <div class="col-md-2">
-            <label for="maxReleaseDate" class="form-label">To:</label>
-            <input type="date" id="maxReleaseDate" class="form-control" onchange="searchMovies()">
+    <!-- Filters (Initially Hidden) -->
+    <div id="filters">
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Genre:</label>
+                <select id="genreSelect" class="form-control" onchange="searchMovies()">
+                    <option value="">All Genres</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Min Rating:</label>
+                <input type="number" id="minRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Max Rating:</label>
+                <input type="number" id="maxRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Director:</label>
+                <input type="text" id="directorInput" class="form-control" onchange="searchMovies()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Lead Actor:</label>
+                <input type="text" id="actorInput" class="form-control" onchange="searchMovies()">
+            </div>
         </div>
     </div>
 
@@ -139,8 +134,13 @@
     <script>
     document.addEventListener("DOMContentLoaded", function () {
         fetchGenres();
-        searchMovies(); // Automatically load all movies when the page loads
+        searchMovies();
     });
+
+    function toggleFilters() {
+        let filtersDiv = document.getElementById("filters");
+        filtersDiv.style.display = (filtersDiv.style.display === "none" || filtersDiv.style.display === "") ? "block" : "none";
+    }
 
     async function fetchGenres() {
         try {
@@ -164,8 +164,8 @@
         const genre = document.getElementById("genreSelect").value;
         const minRating = document.getElementById("minRating").value;
         const maxRating = document.getElementById("maxRating").value;
-        const minReleaseDate = document.getElementById("minReleaseDate").value;
-        const maxReleaseDate = document.getElementById("maxReleaseDate").value;
+        const director = document.getElementById("directorInput").value.trim();
+        const actor = document.getElementById("actorInput").value.trim();
         const resultsDiv = document.getElementById("results");
 
         try {
@@ -174,8 +174,8 @@
             if (genre) url.searchParams.append("genre", genre);
             if (minRating) url.searchParams.append("min_rating", minRating);
             if (maxRating) url.searchParams.append("max_rating", maxRating);
-            if (minReleaseDate) url.searchParams.append("min_release_date", minReleaseDate);
-            if (maxReleaseDate) url.searchParams.append("max_release_date", maxReleaseDate);
+            if (director) url.searchParams.append("director", director);
+            if (actor) url.searchParams.append("actor", actor);
 
             const response = await fetch(url);
             if (!response.ok) throw new Error("Failed to fetch movies.");
@@ -189,12 +189,11 @@
             resultsDiv.innerHTML = movies.map(movie => `
                 <div class="movie-card">
                     <img src="${movie.poster_url}" alt="${movie.title} Poster">
-                    <div>
-                        <h5>${movie.title}</h5>
-                        <p><strong>Genre:</strong> ${movie.genre}</p>
-                        <p><strong>Release Date:</strong> ${movie.release_date}</p>
-                        <p><strong>Average Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
-                    </div>
+                    <h5>${movie.title}</h5>
+                    <p><strong>Genre:</strong> ${movie.genre}</p>
+                    <p><strong>Director:</strong> ${movie.directors}</p>
+                    <p><strong>Actors:</strong> ${movie.actors}</p>
+                    <p><strong>Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
                 </div>
             `).join("");
         } catch (error) {
