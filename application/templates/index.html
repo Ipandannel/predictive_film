@@ -21,6 +21,10 @@
             margin-right: 15px;
             border-radius: 5px;
         }
+        #userBoxplot img {
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body class="container mt-4">
@@ -49,70 +53,196 @@
         </div>
     </div>
 
+    <!-- Analysis Inputs -->
+    <div class="mb-3">
+        <div class="row">
+            <div class="col-md-4">
+                <label for="lowUserIdInput" class="form-label">User ID:</label>
+                <input type="number" id="lowUserIdInput" class="form-control" placeholder="Enter User ID">
+            </div>
+            <div class="col-md-4">
+                <label for="lowGenreInput" class="form-label">Genre:</label>
+                <input type="text" id="lowGenreInput" class="form-control" placeholder="Enter Genre">
+            </div>
+            <div class="col-md-4 align-self-end">
+                <button class="btn btn-primary" onclick="analyzeFilteredLowRatings()">Analyze Filtered Low Rating Patterns</button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4">
+                <label for="highUserIdInput" class="form-label">User ID:</label>
+                <input type="number" id="highUserIdInput" class="form-control" placeholder="Enter User ID">
+            </div>
+            <div class="col-md-4">
+                <label for="highGenreInput" class="form-label">Genre:</label>
+                <input type="text" id="highGenreInput" class="form-control" placeholder="Enter Genre">
+            </div>
+            <div class="col-md-4 align-self-end">
+                <button class="btn btn-primary" onclick="analyzeFilteredHighRatings()">Analyze Filtered High Rating Patterns</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Movie Results -->
     <div id="results"></div>
 
+    <!-- Analysis Results -->
+    <div id="filteredLowRatingResults"></div>
+    <div id="filteredHighRatingResults"></div>
+    <div id="userBoxplot"></div>
+
+    <!-- New Search Box for User Genre Rating Boxplot -->
+    <div class="mb-3">
+        <div class="row">
+            <div class="col-md-4">
+                <label for="userIdInput" class="form-label">User ID:</label>
+                <input type="number" id="userIdInput" class="form-control" placeholder="Enter User ID">
+            </div>
+           
+            <div class="col-md-4 align-self-end">
+                <button class="btn btn-primary" onclick="displayUserGenreRatingBoxplot()">Generate User Genre Rating Boxplot</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-    // Fetch and Populate Genres Dropdown
-    document.addEventListener("DOMContentLoaded", fetchGenres);
+        // Fetch and Populate Genres Dropdown
+        document.addEventListener("DOMContentLoaded", fetchGenres);
 
-    async function fetchGenres() {
-        try {
-            const response = await fetch("/genres"); // Fetch available genres from API
-            if (!response.ok) throw new Error("Failed to load genres.");
-
-            const genres = await response.json();
-            const genreSelect = document.getElementById("genreSelect");
-
-            genres.forEach(genre => {
-                const option = document.createElement("option");
-                option.value = genre;
-                option.textContent = genre;
-                genreSelect.appendChild(option);
-            });
-        } catch (error) {
-            console.error("Error loading genres:", error.message);
+        async function fetchGenres() {
+            try {
+                const response = await fetch("/genres");
+                if (!response.ok) throw new Error("Failed to load genres.");
+                const genres = await response.json();
+                const genreSelect = document.getElementById("genreSelect");
+                genres.forEach(genre => {
+                    const option = document.createElement("option");
+                    option.value = genre;
+                    option.textContent = genre;
+                    genreSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Error loading genres:", error.message);
+            }
         }
-    }
 
-    // Fetch and Display Filtered Movie Results
-    async function searchMovies() {
-        const query = document.getElementById("searchInput").value.trim();
-        const genre = document.getElementById("genreSelect").value;
-        const minRating = document.getElementById("minRating").value;
-        const maxRating = document.getElementById("maxRating").value;
-        const resultsDiv = document.getElementById("results");
+        // Fetch and Display Filtered Movie Results
+        async function searchMovies() {
+            const query = document.getElementById("searchInput").value.trim();
+            const genre = document.getElementById("genreSelect").value;
+            const minRating = document.getElementById("minRating").value;
+            const maxRating = document.getElementById("maxRating").value;
+            const resultsDiv = document.getElementById("results");
 
-        try {
-            const url = new URL("/search", window.location.origin);
-            if (query) url.searchParams.append("q", query);
-            if (genre) url.searchParams.append("genre", genre);
-            if (minRating) url.searchParams.append("min_rating", minRating);
-            if (maxRating) url.searchParams.append("max_rating", maxRating);
+            try {
+                const url = new URL("/search", window.location.origin);
+                if (query) url.searchParams.append("q", query);
+                if (genre) url.searchParams.append("genre", genre);
+                if (minRating) url.searchParams.append("min_rating", minRating);
+                if (maxRating) url.searchParams.append("max_rating", maxRating);
 
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Failed to fetch movies.");
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch movies.");
+                const movies = await response.json();
+                if (movies.length === 0) {
+                    resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
+                    return;
+                }
+                resultsDiv.innerHTML = movies.map(movie => `
+                    <div class="movie-card">
+                        <div>
+                            <h5>${movie.title}</h5>
+                            <p><strong>Genre:</strong> ${movie.genre}</p>
+                            <p><strong>Average Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
+                        </div>
+                    </div>
+                `).join("");
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+            }
+        }
 
-            const movies = await response.json();
-            if (movies.length === 0) {
-                resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
+        // Analyze Filtered Low Rating Patterns
+        async function analyzeFilteredLowRatings() {
+            const userId = document.getElementById("lowUserIdInput").value.trim();
+            const genre = document.getElementById("lowGenreInput").value.trim();
+            if (!userId || !genre) {
+                document.getElementById("filteredLowRatingResults").innerHTML = "<p class='text-danger'>Please enter both userId and genre.</p>";
                 return;
             }
 
-            resultsDiv.innerHTML = movies.map(movie => `
-                <div class="movie-card">
-                    <div>
-                        <h5>${movie.title}</h5>
-                        <p><strong>Genre:</strong> ${movie.genre}</p>
-                        <p><strong>Average Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
-                    </div>
-                </div>
-            `).join("");
-        } catch (error) {
-            resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+            try {
+                const url = new URL("/analyze/filtered_low_ratings", window.location.origin);
+                url.searchParams.append("userId", userId);
+                url.searchParams.append("genre", genre);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch filtered low ratings.");
+                const data = await response.json();
+                if (data.error || data.message) {
+                    document.getElementById("filteredLowRatingResults").innerHTML = `<p class='text-danger'>${data.error || data.message}</p>`;
+                } else {
+                    document.getElementById("filteredLowRatingResults").innerHTML = data.table_html;
+                }
+            } catch (error) {
+                document.getElementById("filteredLowRatingResults").innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+            }
         }
-    }
+
+        // Analyze Filtered High Rating Patterns
+        async function analyzeFilteredHighRatings() {
+            const userId = document.getElementById("highUserIdInput").value.trim();
+            const genre = document.getElementById("highGenreInput").value.trim();
+            if (!userId || !genre) {
+                document.getElementById("filteredHighRatingResults").innerHTML = "<p class='text-danger'>Please enter both userId and genre.</p>";
+                return;
+            }
+
+            try {
+                const url = new URL("/analyze/filtered_high_ratings", window.location.origin);
+                url.searchParams.append("userId", userId);
+                url.searchParams.append("genre", genre);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch filtered high ratings.");
+                const data = await response.json();
+                if (data.error || data.message) {
+                    document.getElementById("filteredHighRatingResults").innerHTML = `<p class='text-danger'>${data.error || data.message}</p>`;
+                } else {
+                    document.getElementById("filteredHighRatingResults").innerHTML = data.table_html;
+                }
+            } catch (error) {
+                document.getElementById("filteredHighRatingResults").innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+            }
+        }
+
+        // Display User Genre Rating Boxplot
+        async function displayUserGenreRatingBoxplot() {
+            const userId = document.getElementById("userIdInput").value.trim();
+            if (!userId) {
+                document.getElementById("userBoxplot").innerHTML = "<p class='text-danger'>Please enter a userId.</p>";
+                return;
+            }
+
+            try {
+                const url = new URL("/analyze/user_genre_rating_boxplot", window.location.origin);
+                url.searchParams.append("userId", userId);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch boxplot.");
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById("userBoxplot").innerHTML = `<p class='text-danger'>${data.error}</p>`;
+                } else {
+                    document.getElementById("userBoxplot").innerHTML = `
+                        <img src="data:image/png;base64,${data.image}" alt="User Genre Rating Boxplot" class="img-fluid">
+                    `;
+                }
+            } catch (error) {
+                document.getElementById("userBoxplot").innerHTML = `<p class='text-danger'>Error loading boxplot: ${error.message}</p>`;
+            }
+        }
     </script>
 
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91b9c45078227bd0',t:'MTc0MTE3OTMxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91c15c1818954552',t:'MTc0MTI1ODkzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91c923ad7d7d4526',t:'MTc0MTM0MDUxMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
+
+
