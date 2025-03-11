@@ -1,6 +1,6 @@
 Flask==2.3.2
 mysql-connector-python==8.0.28
-tqdm
-flask_session
-bcrypt
-
+pandas>=2.0.3
+matplotlib==3.8.2
+seaborn==0.13.2
+SQLAlchemy==2.0.23
