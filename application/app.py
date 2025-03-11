@@ -27,11 +27,19 @@ def index():
 def search_movies():
     """Search for movies based on filters."""
     query = request.args.get("q", "").strip()
-    genre = request.args.get("genre", "").strip()
+    genres = request.args.get("genres", "").strip().split(",") if request.args.get("genres") else []
     min_rating = request.args.get("min_rating", "").strip()
     max_rating = request.args.get("max_rating", "").strip()
     director = request.args.get("director", "").strip()
     actor = request.args.get("actor", "").strip()
+    release_date_from = request.args.get("releaseDateFrom", "").strip()
+    release_date_to = request.args.get("releaseDateTo", "").strip()
+    min_runtime = request.args.get("min_runtime", "").strip()
+    max_runtime = request.args.get("max_runtime", "").strip()
+    language = request.args.get("language", "").strip()
+    min_oscars = request.args.get("minOscars", "").strip()
+    min_golden_globes = request.args.get("minGoldenGlobes", "").strip()
+    min_baftas = request.args.get("minBAFTAs", "").strip()
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -45,6 +53,8 @@ def search_movies():
             IFNULL(movies.poster_url, '') AS poster_url,
             IFNULL(GROUP_CONCAT(DISTINCT directors.director_name SEPARATOR ', '), 'Unknown') AS directors,
             IFNULL(GROUP_CONCAT(DISTINCT actors.actor_name SEPARATOR ', '), 'Unknown') AS actors,
+            IFNULL(movies.runtime, 'Unknown') AS runtime,
+            IFNULL(languages.language_name, 'Unknown') AS language,
             IFNULL(ratings.imdb_rating, 0) AS imdb_rating,
             IFNULL(ratings.rotten_tomatoes, 0) AS rt_score,
             IFNULL(awards.oscars_won, 0) AS oscars,
@@ -59,31 +69,53 @@ def search_movies():
         LEFT JOIN actors ON movie_actors.actor_id = actors.id
         LEFT JOIN ratings ON movies.movieId = ratings.movieId
         LEFT JOIN awards ON movies.movieId = awards.movieId
+        LEFT JOIN languages ON movies.language_id = languages.id  -- ✅ FIXED LANGUAGE JOIN
         WHERE 1=1
     """
     query_params = []
 
-    # 🔎 Filter by title
+    # ✅ Search by title
     if query:
         sql_query += " AND LOWER(movies.title) LIKE LOWER(%s)"
         query_params.append(f"%{query}%")
 
-    # 🔎 Filter by genre
-    if genre:
-        sql_query += " AND genres.genre_name = %s"
-        query_params.append(genre)
+    # ✅ Filter by genres (Ensures only movies with at least one selected genre appear)
+    if genres:
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT mg.movieId FROM movie_genres mg 
+                JOIN genres g ON mg.genreId = g.id 
+                WHERE g.genre_name IN ({})
+                GROUP BY mg.movieId
+                HAVING COUNT(DISTINCT g.genre_name) = %s
+            )
+        """.format(", ".join(["%s"] * len(genres)))
+        query_params.extend(genres)
+        query_params.append(len(genres))  # Ensure all selected genres exist in the movie
 
-    # 🔎 Filter by director
+    # ✅ Filter by director
     if director:
-        sql_query += " AND directors.director_name LIKE %s"
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT md.movieId FROM movie_directors md 
+                JOIN directors d ON md.director_id = d.id 
+                WHERE d.director_name LIKE %s
+            )
+        """
         query_params.append(f"%{director}%")
 
-    # 🔎 Filter by lead actor
+    # ✅ Filter by actor
     if actor:
-        sql_query += " AND actors.actor_name LIKE %s"
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT ma.movieId FROM movie_actors ma 
+                JOIN actors a ON ma.actor_id = a.id 
+                WHERE a.actor_name LIKE %s
+            )
+        """
         query_params.append(f"%{actor}%")
 
-    # 🔎 Filter by rating range
+    # ✅ Filter by rating
     if min_rating:
         sql_query += " AND movies.avg_rating >= %s"
         query_params.append(float(min_rating))
@@ -91,7 +123,39 @@ def search_movies():
         sql_query += " AND movies.avg_rating <= %s"
         query_params.append(float(max_rating))
 
-    sql_query += " GROUP BY movies.movieId LIMIT 20;"  # Avoid duplicates
+    # ✅ Filter by release date
+    if release_date_from:
+        sql_query += " AND movies.release_date >= %s"
+        query_params.append(release_date_from)
+    if release_date_to:
+        sql_query += " AND movies.release_date <= %s"
+        query_params.append(release_date_to)
+
+    # ✅ Filter by runtime
+    if min_runtime:
+        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) >= %s"
+        query_params.append(int(min_runtime))
+    if max_runtime:
+        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) <= %s"
+        query_params.append(int(max_runtime))
+
+    # ✅ Filter by language
+    if language:
+        sql_query += " AND languages.language_name = %s"
+        query_params.append(language)
+
+    # ✅ Filter by awards
+    if min_oscars:
+        sql_query += " AND awards.oscars_won >= %s"
+        query_params.append(int(min_oscars))
+    if min_golden_globes:
+        sql_query += " AND awards.golden_globes_won >= %s"
+        query_params.append(int(min_golden_globes))
+    if min_baftas:
+        sql_query += " AND awards.baftas_won >= %s"
+        query_params.append(int(min_baftas))
+
+    sql_query += " GROUP BY movies.movieId LIMIT 20;"  # ✅ Removed COUNT filter to allow more results
 
     cursor.execute(sql_query, tuple(query_params))
     movies = cursor.fetchall()
@@ -101,33 +165,13 @@ def search_movies():
     
     return jsonify(movies)
 
-@app.route("/movies")
-def get_movies():
-    """Fetch all movies with details."""
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
-
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT movies.movieId, movies.title, 
-               IFNULL(avg_rating, 0) AS avg_rating, 
-               IFNULL(release_date, 'Unknown') AS release_date,
-               IFNULL(poster_url, '') AS poster_url
-        FROM movies;
-    """)
-    movies = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify(movies)
-
 @app.route("/genres", methods=["GET"])
 def get_genres():
-    """Fetch unique genres."""
+    """Fetch all available genres for filtering."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT DISTINCT genre_name FROM genres ORDER BY genre_name;")
+    cursor.execute("SELECT genre_name FROM genres ORDER BY genre_name;")
     genres = [row["genre_name"] for row in cursor.fetchall()]
 
     cursor.close()
@@ -135,6 +179,67 @@ def get_genres():
 
     return jsonify(genres)
 
+@app.route("/search_directors", methods=["GET"])
+def search_directors():
+    """Search for directors based on user input."""
+    search_query = request.args.get("q", "").strip().lower()
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if not search_query:
+        cursor.execute("SELECT director_name FROM directors ORDER BY director_name ASC LIMIT 10;")
+    else:
+        cursor.execute("""
+            SELECT director_name FROM directors 
+            WHERE LOWER(director_name) LIKE %s 
+            ORDER BY director_name ASC 
+            LIMIT 10;
+        """, (f"%{search_query}%",))
+
+    directors = [row["director_name"] for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(directors)
+@app.route("/languages", methods=["GET"])
+def get_languages():
+    """Fetch all available languages."""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT language_name FROM languages ORDER BY language_name;")
+    languages = [row["language_name"] for row in cursor.fetchall()]
+
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(languages)
+@app.route("/search_actors", methods=["GET"])
+def search_actors():
+    """Search for actors based on user input."""
+    search_query = request.args.get("q", "").strip().lower()
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if not search_query:
+        cursor.execute("SELECT actor_name FROM actors ORDER BY actor_name ASC LIMIT 10;")
+    else:
+        cursor.execute("""
+            SELECT actor_name FROM actors 
+            WHERE LOWER(actor_name) LIKE %s 
+            ORDER BY actor_name ASC 
+            LIMIT 10;
+        """, (f"%{search_query}%",))
+
+    actors = [row["actor_name"] for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(actors)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-

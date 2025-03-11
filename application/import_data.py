@@ -66,12 +66,21 @@ def is_data_imported(table_name):
     cursor.close()
     conn.close()
     return count > 0  # True if data exists, False otherwise
+def batch_insert_movie_genres(cursor, movie_genres):
+    """Batch inserts movie-genre relationships after genres exist."""
+    cursor.executemany("""
+        INSERT IGNORE INTO movie_genres (movieId, genreId)
+        SELECT %s, id FROM genres WHERE genre_name=%s;
+    """, movie_genres)
 
 def import_movies():
     """Imports movies from movies.csv while normalizing related data, with batch inserts and a progress bar."""
+    if is_data_imported("movies"):
+        print("✅ Movies data already exists. Skipping import.")
+        return
     conn = connect_db()
     cursor = conn.cursor()
-
+    print("📥 Importing Movies...")
     # Read the CSV file
     with open(MOVIES_CSV, "r", encoding="utf-8") as file:
         reader = list(csv.reader(file))
@@ -84,6 +93,7 @@ def import_movies():
         movie_actors_data = []
         movie_awards_data = []
         movie_ratings_data = []
+        movie_genres_data = []
         genres_set = set()
         actors_set = set()
         directors_set = set()
@@ -135,6 +145,7 @@ def import_movies():
                 genre = genre.strip()
                 if genre:
                     genres_set.add(genre)
+                    movie_genres_data.append((movieId, genre))
 
             # ✅ Collect Directors Data (SPLIT MULTIPLE DIRECTORS)
             for dir_name in director.split(","):
@@ -326,7 +337,11 @@ def update_average_ratings():
     conn.close()
     print("✅ Average ratings updated from user ratings successfully!")
 def import_genres():
-    """Extract unique genres from movies.csv and insert them into the genres table, with a progress bar and batch inserts."""
+    """Extracts unique genres from movies.csv and inserts them into the genres table, then links movies to genres."""
+    if is_data_imported("movie_genres"):  # 🔥 Check if relationships already exist
+        print("✅ Movie-Genre relationships already exist. Skipping.")
+        return
+
     print("📥 Extracting and importing genres...")
 
     conn = connect_db()
@@ -349,22 +364,21 @@ def import_genres():
             for genre in genres:
                 genre = genre.strip()
                 if genre:
-                    genre_set.add(genre)
-                    movie_genres_data.append((movieId, genre))
+                    genre_set.add(genre)  # ✅ Store unique genres
+                    movie_genres_data.append((movieId, genre))  # ✅ Store movie-genre pairs
 
-    # ✅ Batch insert unique genres
+    # ✅ Insert unique genres
     cursor.executemany("INSERT IGNORE INTO genres (genre_name) VALUES (%s);", [(g,) for g in genre_set])
-
-    # ✅ Insert into movie_genres linking table
-    cursor.executemany("""
-        INSERT IGNORE INTO movie_genres (movieId, genreId) 
-        SELECT %s, id FROM genres WHERE genre_name=%s
-    """, movie_genres_data)
-
     conn.commit()
+
+    # ✅ Insert movie-genre relationships
+    batch_insert_movie_genres(cursor, movie_genres_data)
+    conn.commit()
+
     cursor.close()
     conn.close()
-    print("✅ Genres imported successfully!")
+    print("✅ Genres and movie-genre relationships imported successfully!")
+
 
 def import_ratings():
     """Imports ratings data using batch inserts and a progress bar."""

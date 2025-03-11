@@ -10,10 +10,35 @@
         /* General Dark Mode Styling */
         body {
             background-color: #1E1E1E;
-            color: #EAEAEA;
+            color:  #EAEAEA;
             font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 20px;
+        }
+        .navbar {
+            background-color: #333;
+            padding: 10px;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            font-size: 18px;
+            padding: 8px;
+        }
+        .navbar a:hover {
+            background-color: #FFD700;
+            color: black;
+            border-radius: 5px;
+        }
+        .search-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-container input {
+            width: 50%; /* Adjust the width */
         }
 
         /* Header */
@@ -25,29 +50,93 @@
             margin-bottom: 20px;
         }
 
-        /* Search Bar */
+        /* Search & Filters */
         .search-container {
             display: flex;
             justify-content: center;
             margin-bottom: 15px;
         }
 
-        input {
+        input, select {
             border-radius: 5px;
             border: 1px solid #555;
             background-color: #333;
             color: #EAEAEA;
             padding: 8px;
-            width: 300px;
         }
 
-        /* Filters Section */
+        /* Toggle Filters Button */
+        .btn-toggle {
+            background: #FFD700;
+            color: #333;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Filters Section (Hidden by Default) */
         #filters {
-            display: none; /* Initially hidden */
+            display: none;
             background: #2C2C2C;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
+        }
+        /* Festival Planner Sidebar */
+        .sidebar {
+            position: fixed;
+            left: -300px; /* Initially hidden */
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background-color: #2C2C2C;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: 2px 0px 10px rgba(255, 255, 255, 0.1);
+            transition: left 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        /* When active, move sidebar into view */
+        .sidebar.active {
+            left: 0;
+        }
+
+        .sidebar h4 {
+            color: #FFD700;
+            text-align: center;
+        }
+
+        /* Genre Checkboxes */
+        .genre-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .genre-checkbox {
+            margin-right: 5px;
+        }
+
+        /* Suggestion Boxes */
+        .suggestion-box {
+            list-style-type: none;
+            background: #444;
+            padding: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
+
+        .suggestion-box li {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .suggestion-box li:hover {
+            background: #FFD700;
+            color: black;
         }
 
         /* Movie Results */
@@ -81,59 +170,201 @@
             object-fit: cover;
             border-radius: 5px;
         }
+        #festival-planner {
+            display: none; /* Hidden by default */
+            background: #2C2C2C;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            #results {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            }
+        .genre-section {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .genre-section h4 {
+            color: #FFD700;
+        }
+
+        .genre-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .genre-section li {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: #444;
+            border-radius: 5px;
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body class="container mt-4">
 
+
+    <div class="navbar d-flex justify-content-between">
+        <div>
+            <a href="#" onclick="showSearch()">🏠 Home</a>
+            <a href="#" onclick="togglePlanner()" id="plannerButton">
+                📅 Festival Planner (<span id="plannerCount">0</span>)
+            </a>
+            
+        </div>
+        <div>
+            <a href="#">🔑 Login</a>
+        </div>
+    </div>
+    
+    <!-- Main Search -->
     <h1 class="text-center">🎬 Film Dashboard</h1>
 
-    <!-- Search Input -->
-    <div class="search-container">
-        <input type="text" id="searchInput" class="form-control" placeholder="Search for a movie..." oninput="searchMovies()">
-        <button class="btn btn-warning ms-2" onclick="toggleFilters()">🔍 Search Filters</button>
+    <!-- Search Bar & Filters Button in One Row -->
+    <div class="search-container d-flex justify-content-center align-items-center gap-3">
+        <input type="text" id="searchInput" class="form-control w-50" placeholder="Search for a movie..." oninput="searchMovies()">
+        <button class="btn btn-warning" onclick="toggleFilters()">🔍 Filters</button>
     </div>
 
-    <!-- Filters (Initially Hidden) -->
-    <div id="filters">
+    <!-- Filters Section (Initially Hidden) - Now Placed Directly Below Search Bar -->
+    <div id="filters" class="mt-3" style="display: none;">
         <div class="row mb-3">
-            <div class="col-md-3">
-                <label class="form-label">Genre:</label>
-                <select id="genreSelect" class="form-control" onchange="searchMovies()">
-                    <option value="">All Genres</option>
+            <!-- Genre Checkboxes -->
+            <div class="col-md-4">
+                <label class="form-label">Genres:</label>
+                <div id="genreCheckboxes" class="genre-container"></div>
+            </div>
+
+            <!-- Release Date Range (Calendar Picker) -->
+            <div class="col-md-4">
+                <label class="form-label">Release Date From:</label>
+                <input type="date" id="releaseDateFrom" class="form-control" onchange="searchMovies()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Release Date To:</label>
+                <input type="date" id="releaseDateTo" class="form-control" onchange="searchMovies()">
+            </div>
+
+            <!-- Awards Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Minimum Awards Won:</label>
+                <input type="number" id="minOscars" class="form-control" placeholder="Min Oscars" onchange="searchMovies()">
+                <input type="number" id="minGoldenGlobes" class="form-control mt-2" placeholder="Min Golden Globes" onchange="searchMovies()">
+                <input type="number" id="minBAFTAs" class="form-control mt-2" placeholder="Min BAFTAs" onchange="searchMovies()">
+            </div>
+
+            <!-- Runtime Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Runtime (Min - Max):</label>
+                <input type="number" id="minRuntime" class="form-control" placeholder="Min (mins)" onchange="searchMovies()">
+                <input type="number" id="maxRuntime" class="form-control mt-2" placeholder="Max (mins)" onchange="searchMovies()">
+            </div>
+
+            <!-- Language Dropdown -->
+            <div class="col-md-4">
+                <label class="form-label">Language:</label>
+                <select id="languageSelect" class="form-control" onchange="searchMovies()">
+                    <option value="">All Languages</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <label class="form-label">Min Rating:</label>
-                <input type="number" id="minRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Max Rating:</label>
-                <input type="number" id="maxRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
-            </div>
-            <div class="col-md-2">
+
+            <!-- Director Input with Auto-Suggestions -->
+            <div class="col-md-4">
                 <label class="form-label">Director:</label>
-                <input type="text" id="directorInput" class="form-control" onchange="searchMovies()">
+                <input type="text" id="directorSearch" class="form-control" placeholder="Search for a director..." oninput="fetchDirectors()">
+                <ul id="directorSuggestions" class="suggestion-box"></ul>
             </div>
-            <div class="col-md-2">
+
+            <!-- Actor Input with Auto-Suggestions -->
+            <div class="col-md-4">
                 <label class="form-label">Lead Actor:</label>
-                <input type="text" id="actorInput" class="form-control" onchange="searchMovies()">
+                <input type="text" id="actorSearch" class="form-control" placeholder="Search for an actor..." oninput="fetchActors()">
+                <ul id="actorSuggestions" class="suggestion-box"></ul>
             </div>
         </div>
     </div>
 
-    <!-- Movie Results -->
+
+    
+    <!-- Filters (Initially Hidden) -->
+    <div id="filters">
+        <div class="row mb-3">
+            <!-- Genre Checkboxes -->
+            <div class="col-md-4">
+                <label class="form-label">Genres:</label>
+                <div id="genreCheckboxes" class="genre-container"></div>
+            </div>
+
+            <!-- Release Date Range (Calendar Picker) -->
+            <div class="col-md-4">
+                <label class="form-label">Release Date From:</label>
+                <input type="date" id="releaseDateFrom" class="form-control" onchange="searchMovies()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Release Date To:</label>
+                <input type="date" id="releaseDateTo" class="form-control" onchange="searchMovies()">
+            </div>
+
+            <!-- Awards Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Minimum Awards Won:</label>
+                <input type="number" id="minOscars" class="form-control" placeholder="Min Oscars" onchange="searchMovies()">
+                <input type="number" id="minGoldenGlobes" class="form-control mt-2" placeholder="Min Golden Globes" onchange="searchMovies()">
+                <input type="number" id="minBAFTAs" class="form-control mt-2" placeholder="Min BAFTAs" onchange="searchMovies()">
+            </div>
+
+            <!-- Runtime Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Runtime (Min - Max):</label>
+                <input type="number" id="minRuntime" class="form-control" placeholder="Min (mins)" onchange="searchMovies()">
+                <input type="number" id="maxRuntime" class="form-control mt-2" placeholder="Max (mins)" onchange="searchMovies()">
+            </div>
+
+            <!-- Language Dropdown -->
+            <div class="col-md-4">
+                <label class="form-label">Language:</label>
+                <select id="languageSelect" class="form-control" onchange="searchMovies()">
+                    <option value="">All Languages</option>
+                </select>
+            </div>
+
+            <!-- Director Input with Auto-Suggestions -->
+            <div class="col-md-4">
+                <label class="form-label">Director:</label>
+                <input type="text" id="directorSearch" class="form-control" placeholder="Search for a director..." oninput="fetchDirectors()">
+                <ul id="directorSuggestions" class="suggestion-box"></ul>
+            </div>
+
+            <!-- Actor Input with Auto-Suggestions -->
+            <div class="col-md-4">
+                <label class="form-label">Lead Actor:</label>
+                <input type="text" id="actorSearch" class="form-control" placeholder="Search for an actor..." oninput="fetchActors()">
+                <ul id="actorSuggestions" class="suggestion-box"></ul>
+            </div>
+        </div>
+    </div>
+
     <div id="results"></div>
+
+    <!-- 🎬 Festival Planner Section -->
+    <h2 class="text-center mt-4" id="planner-title" style="display: none;">📅 Festival Movie Planner</h2>
+ <!-- 🛒 Festival Planner Sidebar -->
+    <div id="festival-planner-sidebar" class="sidebar">
+        <h4 class="text-center">📅 Your Festival List</h4>
+        <button class="btn btn-danger btn-sm w-100 mb-2" onclick="togglePlanner()">❌ Close</button>
+        <div id="festival-planner-content"></div>
+    </div>
+
+
+    </div>
 
     <script>
     document.addEventListener("DOMContentLoaded", function () {
         fetchGenres();
+        fetchLanguages();
         searchMovies();
     });
 
@@ -141,66 +372,178 @@
         let filtersDiv = document.getElementById("filters");
         filtersDiv.style.display = (filtersDiv.style.display === "none" || filtersDiv.style.display === "") ? "block" : "none";
     }
+    function togglePlanner() {
+    let plannerSidebar = document.getElementById("festival-planner-sidebar");
+    plannerSidebar.classList.toggle("active");
+}
+
+
+    function showSearch() {
+    document.getElementById("festival-planner").style.display = "none";
+    document.getElementById("planner-title").style.display = "none";}
+
+
 
     async function fetchGenres() {
-        try {
-            const response = await fetch("/genres");
-            if (!response.ok) throw new Error("Failed to load genres.");
-            const genres = await response.json();
-            const genreSelect = document.getElementById("genreSelect");
-            genres.forEach(genre => {
-                const option = document.createElement("option");
-                option.value = genre;
-                option.textContent = genre;
-                genreSelect.appendChild(option);
-            });
-        } catch (error) {
-            console.error("Error loading genres:", error.message);
-        }
+        const response = await fetch("/genres");
+        const genres = await response.json();
+        const genreContainer = document.getElementById("genreCheckboxes");
+        genreContainer.innerHTML = genres.map(genre => `
+            <label>
+                <input type="checkbox" value="${genre}" class="genre-checkbox" onchange="searchMovies()">
+                ${genre}
+            </label>
+        `).join("");
+    }
+
+    async function fetchLanguages() {
+        const response = await fetch("/languages");
+        const languages = await response.json();
+        const languageSelect = document.getElementById("languageSelect");
+        languages.forEach(lang => {
+            const option = document.createElement("option");
+            option.value = lang;
+            option.textContent = lang;
+            languageSelect.appendChild(option);
+        });
     }
 
     async function searchMovies() {
-        const query = document.getElementById("searchInput").value.trim();
-        const genre = document.getElementById("genreSelect").value;
-        const minRating = document.getElementById("minRating").value;
-        const maxRating = document.getElementById("maxRating").value;
-        const director = document.getElementById("directorInput").value.trim();
-        const actor = document.getElementById("actorInput").value.trim();
-        const resultsDiv = document.getElementById("results");
+    updatePlannerUI();  // ✅ Ensure UI updates immediately
 
-        try {
-            const url = new URL("/search", window.location.origin);
-            if (query) url.searchParams.append("q", query);
-            if (genre) url.searchParams.append("genre", genre);
-            if (minRating) url.searchParams.append("min_rating", minRating);
-            if (maxRating) url.searchParams.append("max_rating", maxRating);
-            if (director) url.searchParams.append("director", director);
-            if (actor) url.searchParams.append("actor", actor);
+    const query = document.getElementById("searchInput").value.trim();
+    const selectedGenres = [...document.querySelectorAll(".genre-checkbox:checked")].map(cb => cb.value);
+    const director = document.getElementById("directorSearch").value.trim();
+    const actor = document.getElementById("actorSearch").value.trim();
+    const releaseDateFrom = document.getElementById("releaseDateFrom").value;
+    const releaseDateTo = document.getElementById("releaseDateTo").value;
+    const minOscars = document.getElementById("minOscars").value;
+    const minGoldenGlobes = document.getElementById("minGoldenGlobes").value;
+    const minBAFTAs = document.getElementById("minBAFTAs").value;
+    const minRuntime = document.getElementById("minRuntime").value;
+    const maxRuntime = document.getElementById("maxRuntime").value;
+    const language = document.getElementById("languageSelect").value;
 
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Failed to fetch movies.");
-            const movies = await response.json();
+    const url = new URL("/search", window.location.origin);
+    if (query) url.searchParams.append("q", query);
+    if (selectedGenres.length) url.searchParams.append("genres", selectedGenres.join(","));
+    if (director) url.searchParams.append("director", director);
+    if (actor) url.searchParams.append("actor", actor);
+    if (releaseDateFrom) url.searchParams.append("releaseDateFrom", releaseDateFrom);
+    if (releaseDateTo) url.searchParams.append("releaseDateTo", releaseDateTo);
+    if (minOscars) url.searchParams.append("minOscars", minOscars);
+    if (minGoldenGlobes) url.searchParams.append("minGoldenGlobes", minGoldenGlobes);
+    if (minBAFTAs) url.searchParams.append("minBAFTAs", minBAFTAs);
+    if (minRuntime) url.searchParams.append("min_runtime", minRuntime);
+    if (maxRuntime) url.searchParams.append("max_runtime", maxRuntime);
+    if (language) url.searchParams.append("language", language);
 
-            if (movies.length === 0) {
-                resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
-                return;
-            }
+    console.log("Fetching movies from:", url.toString()); // Debug API request
 
-            resultsDiv.innerHTML = movies.map(movie => `
-                <div class="movie-card">
-                    <img src="${movie.poster_url}" alt="${movie.title} Poster">
-                    <h5>${movie.title}</h5>
-                    <p><strong>Genre:</strong> ${movie.genre}</p>
-                    <p><strong>Director:</strong> ${movie.directors}</p>
-                    <p><strong>Actors:</strong> ${movie.actors}</p>
-                    <p><strong>Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
+    try {
+        const response = await fetch(url);
+        const movies = await response.json();
+
+        console.log("API Response:", movies);  // Debug received movies
+
+        const resultsContainer = document.getElementById("results");
+        resultsContainer.innerHTML = ""; // Clear previous results
+
+        if (movies.length === 0) {
+            resultsContainer.innerHTML = "<p>No movies found.</p>";
+            updatePlannerUI(); // ✅ Ensure UI updates immediately
+            return;
+        }
+
+        resultsContainer.innerHTML = movies.map(movie => `
+            <div class="movie-card">
+                <img src="${movie.poster_url}" alt="${movie.title} Poster">
+                <h5>${movie.title}</h5>
+                <p><strong>Genre:</strong> ${movie.genre}</p>
+                <p><strong>Director:</strong> ${movie.directors}</p>
+                <p><strong>Actors:</strong> ${movie.actors}</p>
+                <p><strong>Language:</strong> ${movie.language}</p>
+                <p><strong>Runtime:</strong> ${movie.runtime}</p>
+                <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
+                <button class="btn btn-warning mt-2" 
+                    onclick="addToPlanner('${movie.title}', '${movie.genre}')">
+                    📅 Add to Planner
+                </button>
+
+
+
+            </div>
+        `).join("");
+
+    } catch (error) {
+        console.error("Error fetching movies:", error);
+    }
+}
+
+    const festivalPlanner = {}; // Stores movies grouped by genre
+
+    function addToPlanner(title, genre) {
+    if (!festivalPlanner[genre]) {
+        festivalPlanner[genre] = [];
+    }
+    
+    // ✅ Prevent duplicate movies
+    if (!festivalPlanner[genre].includes(title)) {
+        festivalPlanner[genre].push(title);
+        updatePlannerUI();
+    } else {
+        alert("This movie is already in your festival planner!");
+    }
+}
+
+    function updatePlannerUI() {
+        const plannerContent = document.getElementById("festival-planner-content");
+        const plannerCount = document.getElementById("plannerCount");
+
+        // Count total movies in the planner
+        let totalMovies = Object.values(festivalPlanner).reduce((sum, list) => sum + list.length, 0);
+        plannerCount.textContent = totalMovies; // Update the counter in the navbar
+
+        // Clear planner content if empty
+        if (totalMovies === 0) {
+            plannerContent.innerHTML = "<p class='text-center'>No movies added yet.</p>";
+            return;
+        }
+
+        // Update the sidebar content
+        plannerContent.innerHTML = Object.entries(festivalPlanner)
+            .map(([genre, movies]) => `
+                <div class="genre-section">
+                    <h5>${genre}</h5>
+                    <ul>${movies.map(movie => `
+                        <li class="d-flex justify-content-between">
+                            ${movie} 
+                            <button class="btn btn-sm btn-danger" onclick="removeFromPlanner('${movie}', '${genre}')">❌</button>
+                        </li>`).join("")}
+                    </ul>
                 </div>
             `).join("");
-        } catch (error) {
-            resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
+    }
+    function removeFromPlanner(title, genre) {
+    if (festivalPlanner[genre]) {
+        festivalPlanner[genre] = festivalPlanner[genre].filter(movie => movie !== title);
+
+        // ✅ Remove genre section if empty
+        if (festivalPlanner[genre].length === 0) {
+            delete festivalPlanner[genre];
         }
     }
+    
+    updatePlannerUI();
+}
+
+
+
+
+
     </script>
 
 </body>
 </html>
+
+
