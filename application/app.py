@@ -1,8 +1,13 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 import mysql.connector
 import os
-
+import bcrypt 
+from flask_session import Session
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'my_secret_key'
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+print("Secret Key:", app.config['SECRET_KEY'])
 
 def get_db_connection():
     """Establishes a connection to the database."""
@@ -290,6 +295,69 @@ def movie_details():
         return jsonify({"error": "Movie not found"}), 404
 
     return jsonify(movie)
+@app.route("/signup", methods=["POST"])
+def signup():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    print("Signup attempted with:", username)  # Debug print
 
+    if not username or not password:
+        print("Missing username or password")
+        return jsonify({"error": "Username and password required"}), 400
+
+    # Hash the password using bcrypt
+    import bcrypt
+    hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+            (username, hashed_password)
+        )
+        conn.commit()
+        print("User inserted:", username)
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        if err.errno == 1062:
+            return jsonify({"error": "Username already exists"}), 409
+        else:
+            return jsonify({"error": str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+    
+    return jsonify({"message": "Signup successful"}), 201
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, password_hash FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not user or not bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+        return jsonify({"error": "Invalid username or password"}), 401
+    session["user_id"] = user["id"]
+    session["username"] = username
+    return jsonify({"message": "Login successful", "username": username}), 200
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"message": "Logged out successfully"}), 200
+
+@app.route("/check_session", methods=["GET"])
+def check_session():
+    if "user_id" in session:
+        return jsonify({"logged_in": True, "username": session["username"]}), 200
+    return jsonify({"logged_in": False}), 200
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000,debug=True)

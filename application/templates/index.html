@@ -248,10 +248,17 @@
             <a href="#" onclick="togglePlanner()" id="plannerButton">
                 📅 Festival Planner (<span id="plannerCount">0</span>)
             </a>
-            
         </div>
         <div>
-            <a href="#">🔑 Login</a>
+            <!-- Login & Signup Buttons -->
+            <button class="btn btn-link btn-login" onclick="openLoginModal()">Login</button>
+            <button class="btn btn-link btn-signup" onclick="openSignupModal()">Sign Up</button>
+    
+            <!-- Welcome Message (Hidden by Default) -->
+            <span id="welcomeMessage" style="display: none; color: #FFD700; font-weight: bold;"></span>
+    
+            <!-- 🔹 Logout Button (Hidden Initially) -->
+            <button class="btn btn-link" id="logoutButton" style="display: none;" onclick="logoutUser()">Logout</button>
         </div>
     </div>
     
@@ -342,6 +349,7 @@
     <!-- Filters (Initially Hidden) -->
     <div id="filters">
         <div class="row mb-3">
+            
             <!-- Genre Checkboxes -->
             <div class="col-md-4">
                 <label class="form-label">Genres:</label>
@@ -414,6 +422,35 @@
         <div id="festival-planner-content"></div>
     </div>
 
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+        <span class="close" onclick="closeLoginModal()">&times;</span>
+        <h3>Login</h3>
+        <form id="loginForm">
+            <input type="text" id="loginUsername" name="username" placeholder="Username" required class="form-control mb-2">
+            <input type="password" id="loginPassword" name="password" placeholder="Password" required class="form-control mb-2">
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+        </div>
+    </div>
+    
+    
+    <!-- Signup Modal -->
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+        <span class="close" onclick="closeSignupModal()">&times;</span>
+        <h3>Sign Up</h3>
+        <form id="signupForm">
+            <input type="text" id="signupUsername" name="username" placeholder="Username" required class="form-control mb-2">
+            <input type="password" id="signupPassword" name="password" placeholder="Password" required class="form-control mb-2">
+            <button type="submit" class="btn btn-success">Sign Up</button>
+        </form>
+        </div>
+    </div>
+  
+  
 
     </div>
 
@@ -422,7 +459,74 @@
         fetchGenres();
         fetchLanguages();
         searchMovies();
+        checkSessionStatus(); // ✅ Check if user is logged in
+
+        // ✅ Ensure Login Form Event Listener is attached
+        const loginForm = document.getElementById("loginForm");
+        if (loginForm) {
+            loginForm.addEventListener("submit", function (event) {
+                event.preventDefault();  // Prevent default form submission
+                console.log("🚀 Login form submitted!");  // Debugging message
+
+                const formData = new FormData(this);
+                console.log("📌 Login Form Data:", Object.fromEntries(formData.entries())); // Debug Form Data
+
+                fetch("/login", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Login response:", data);  // Debug Response
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        closeLoginModal();  // Close modal after login
+                        checkSessionStatus();  // ✅ Update UI to show "Welcome, username"
+                    }
+                })
+                .catch(error => console.error("❌ Error during login:", error));
+            });
+        } else {
+            console.error("❌ Login form not found in DOM!");
+        }
     });
+
+
+
+    function checkSessionStatus() {
+        fetch("/check_session")
+            .then(response => response.json())
+            .then(data => {
+                console.log("✅ Session check:", data);  // Debugging response
+
+                const loginBtn = document.querySelector(".btn-login");
+                const signupBtn = document.querySelector(".btn-signup");
+                const logoutBtn = document.getElementById("logoutButton");
+                const welcomeText = document.getElementById("welcomeMessage");
+
+                if (data.logged_in) {
+                    // ✅ User is logged in: Hide login/signup, show "Welcome, username" & logout
+                    if (loginBtn) loginBtn.style.display = "none";
+                    if (signupBtn) signupBtn.style.display = "none";
+                    if (logoutBtn) logoutBtn.style.display = "inline-block";
+                    if (welcomeText) {
+                        welcomeText.innerHTML = `Welcome, <strong>${data.username}</strong>`;
+                        welcomeText.style.display = "inline-block";
+                    }
+                } else {
+                    // ❌ User is not logged in: Show login/signup, hide "Welcome" & logout
+                    if (loginBtn) loginBtn.style.display = "inline-block";
+                    if (signupBtn) signupBtn.style.display = "inline-block";
+                    if (logoutBtn) logoutBtn.style.display = "none";
+                    if (welcomeText) welcomeText.style.display = "none";
+                }
+            })
+            .catch(error => console.error("❌ Error checking session:", error));
+    }
+
+
     function toggleFilters() {
         let filtersDiv = document.getElementById("filters");
         filtersDiv.style.display = (filtersDiv.style.display === "none" || filtersDiv.style.display === "") ? "block" : "none";
@@ -554,6 +658,7 @@
         document.getElementById("newListForm").style.display = 'none';
         updatePlannerUI();
     }
+
     function editList(oldTitle) {
         const newListTitle = prompt("Enter the new title for your list", oldTitle);
         if (newListTitle && newListTitle !== oldTitle && !festivalLists[newListTitle]) {
@@ -573,10 +678,9 @@
     }
 
     function toggleEditMovies(listTitle) {
-        const list = festivalLists[listTitle];
-        list.editMode = !list.editMode;  // Toggle edit mode
-        updatePlannerUI();
-    }
+    festivalLists[listTitle].editMode = !festivalLists[listTitle].editMode; // Toggle edit mode
+    updatePlannerUI();
+}
 
     function toggleEditList(listTitle) {
         openEditModal(listTitle);
@@ -600,6 +704,17 @@
             updatePlannerUI();
         }
     }
+    function logoutUser() {
+        fetch("/logout", { method: "POST" })  // ✅ Sends a logout request to Flask
+            .then(response => response.json())
+            .then(data => {
+                console.log("✅ Logout response:", data);  // Debugging
+                alert(data.message);  // Show logout success message
+                checkSessionStatus();  // ✅ Refresh UI after logout
+            })
+            .catch(error => console.error("❌ Error during logout:", error));
+    }
+
     function showListDropdown(button) {
         const selector = button.nextElementSibling;
         selector.innerHTML = '<option disabled selected>Select list to insert:</option>';
@@ -668,17 +783,33 @@
 
         modal.style.display = 'block';
     }
-    function applyListChanges(listTitle, newTitle, newNote) {
-        if (newTitle !== listTitle && festivalLists[newTitle]) {
+    function editListDetails(listTitle) {
+    const modal = document.getElementById('editListModal');
+    const titleInput = document.getElementById('editListTitle');
+    const noteInput = document.getElementById('editListNote');
+
+    titleInput.value = listTitle;
+    noteInput.value = festivalLists[listTitle].note;
+
+    document.getElementById('editListForm').onsubmit = function(event) {
+        event.preventDefault();
+        applyListChanges(listTitle, titleInput.value, noteInput.value);
+    };
+
+    modal.style.display = 'block';
+}
+
+    function applyListChanges(oldTitle, newTitle, newNote) {
+        if (newTitle !== oldTitle && festivalLists[newTitle]) {
             alert("A list with this title already exists.");
             return;
         }
 
-        if (newTitle !== listTitle) {
-            festivalLists[newTitle] = {...festivalLists[listTitle], note: newNote};
-            delete festivalLists[listTitle];
+        if (newTitle !== oldTitle) {
+            festivalLists[newTitle] = { ...festivalLists[oldTitle], note: newNote };
+            delete festivalLists[oldTitle];
         } else {
-            festivalLists[listTitle].note = newNote;
+            festivalLists[oldTitle].note = newNote;
         }
 
         closeModal();
@@ -688,6 +819,7 @@
     function closeModal() {
         document.getElementById('editListModal').style.display = 'none';
     }
+
 
     function updateList(newTitle, newNote, oldTitle) {
         if (newTitle !== oldTitle && festivalLists[newTitle]) {
@@ -705,30 +837,49 @@
     }
     function updatePlannerUI() {
         const plannerContent = document.getElementById("festival-planner-content");
-        plannerContent.innerHTML = Object.keys(festivalLists).map(listTitle => {
+        if (!plannerContent) {
+            console.error("Planner content element not found!");
+            return;
+        }
+
+        const contentHtml = Object.keys(festivalLists).map(listTitle => {
             const list = festivalLists[listTitle];
             return `
                 <div class="card bg-dark text-white mb-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>${listTitle}</span>
-                        <button class="btn btn-danger btn-sm" onclick="deleteList('${listTitle}')">Delete</button>
+                        <span>${listTitle} - Note: ${list.note}</span>
+                        <div>
+                            <button class="btn btn-info btn-sm" onclick="editListDetails('${listTitle}')">Edit Title/Notes</button>
+                            <button class="btn btn-warning btn-sm" onclick="toggleEditMovies('${listTitle}')">Edit Movies</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteList('${listTitle}')">Delete</button>
+                        </div>
                     </div>
                     <div class="card-body">
                         ${Object.keys(list.genres).map(genre => `
                             <h6>${genre}</h6>
-                            <ul>${list.genres[genre].map(movie => `
-                                <li><a href="#" onclick="displayMovieDetails('${movie}');">${movie}</a></li>
-                            `).join('')}</ul>
+                            <ul>
+                                ${list.genres[genre].map(movie => `
+                                    <li>
+                                        <a href="#" onclick="displayMovieDetails('${movie}')" style="color: #FFD700; text-decoration: underline;">
+                                            ${movie}
+                                        </a>
+                                        ${list.editMode ? `<button class="btn btn-sm btn-danger ms-2" onclick="removeMovieFromList('${listTitle}', '${genre}', '${movie}')">X</button>` : ""}
+                                    </li>
+                                `).join('')}
+                            </ul>
                         `).join('')}
                     </div>
                 </div>
             `;
         }).join('');
 
+        plannerContent.innerHTML = contentHtml;
+
         if (Object.keys(festivalLists).length === 0) {
             plannerContent.innerHTML = "<p class='text-center text-white'>No lists created yet.</p>";
         }
     }
+
 
     function fetchMovieDetails(title) {
         return new Promise((resolve, reject) => {
@@ -791,6 +942,100 @@
     function closeDetails() {
         document.getElementById('movieDetailsCard').style.display = 'none';
     }
+    // Functions to open and close modals
+    function openLoginModal() {
+        document.getElementById('loginModal').style.display = 'block';
+    }
+    function closeLoginModal() {
+        document.getElementById('loginModal').style.display = 'none';
+    }
+    function openSignupModal() {
+        var modal = document.getElementById('signupModal');
+        modal.style.display = 'block';
+
+        // Attach the event listener when the modal is opened
+        var signupForm = document.getElementById('signupForm');
+        if (signupForm) {
+            signupForm.addEventListener('submit', function(event) {
+                event.preventDefault();  // Prevent the form from submitting traditionally
+
+                console.log("🚀 Signup Form Submitted!");
+                const formData = new FormData(this);
+                
+                fetch('/signup', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Signup API Response:", data);
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        closeSignupModal();
+                        checkSessionStatus();  // Refresh UI
+                    }
+                })
+                .catch(error => console.error("❌ Error during signup:", error));
+            }, { once: true }); // Ensure the listener is added only once
+        } else {
+            console.error("❌ Signup form not found in DOM!");
+        }
+    }
+
+    function closeSignupModal() {
+        var modal = document.getElementById('signupModal');
+        modal.style.display = 'none';
+    }
+
+// Handle Login Form Submission
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        fetch('/login', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
+                closeLoginModal();
+                // Optionally, reload page or update UI to show logged-in state.
+                location.reload();
+            }
+        })
+        .catch(error => console.error('Error during login:', error));
+    });
+
+    // Handle Signup Form Submission
+    document.getElementById('signupForm').addEventListener('submit', function(event) {
+        event.preventDefault();  // Prevent default form submission
+
+        console.log("🚀 Signup Form Submitted!");  // Debugging
+
+        const formData = new FormData(this);
+        
+        fetch('/signup', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("✅ Signup API Response:", data);  // Debugging
+            if (data.error) {
+                alert(data.error);  // Show error message
+            } else {
+                alert(data.message);  // Show success message
+                closeSignupModal();
+                checkSessionStatus();  // Refresh UI
+            }
+        })
+        .catch(error => console.error("❌ Error during signup:", error));
+    });
 
     </script>
 
