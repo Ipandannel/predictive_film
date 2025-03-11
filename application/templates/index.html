@@ -355,6 +355,12 @@
     <div id="festival-planner-sidebar" class="sidebar">
         <h4 class="text-center">📅 Your Festival List</h4>
         <button class="btn btn-danger btn-sm w-100 mb-2" onclick="togglePlanner()">❌ Close</button>
+        <button class="btn btn-primary mb-3" onclick="showNewListForm()">Create New List</button>
+        <div id="newListForm" style="display: none;">
+            <input type="text" id="newListTitle" placeholder="List Title" class="form-control mb-2">
+            <textarea id="newListNote" placeholder="List Note" class="form-control mb-2"></textarea>
+            <button class="btn btn-success" onclick="createNewList()">Add List</button>
+        </div>
         <div id="festival-planner-content"></div>
     </div>
 
@@ -465,10 +471,8 @@
                 <p><strong>Language:</strong> ${movie.language}</p>
                 <p><strong>Runtime:</strong> ${movie.runtime}</p>
                 <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
-                <button class="btn btn-warning mt-2" 
-                    onclick="addToPlanner('${movie.title}', '${movie.genre}')">
-                    📅 Add to Planner
-                </button>
+                <button class="btn btn-warning mt-2" onclick="showListDropdown(this)">📅 Add to Planner</button>
+                <select class="form-control mt-2 list-selector" style="display: none;"></select>
 
 
 
@@ -479,63 +483,105 @@
         console.error("Error fetching movies:", error);
     }
 }
+    const festivalLists = {}; // Stores lists with their details and movies grouped by genre
 
-    const festivalPlanner = {}; // Stores movies grouped by genre
-
-    function addToPlanner(title, genre) {
-    if (!festivalPlanner[genre]) {
-        festivalPlanner[genre] = [];
+    function showNewListForm() {
+        document.getElementById("newListForm").style.display = 'block';
     }
-    
-    // ✅ Prevent duplicate movies
-    if (!festivalPlanner[genre].includes(title)) {
-        festivalPlanner[genre].push(title);
+
+    function createNewList() {
+        const title = document.getElementById("newListTitle").value.trim();
+        const note = document.getElementById("newListNote").value.trim();
+        if (!title) {
+            alert("Please enter a title for the list.");
+            return;
+        }
+        if (festivalLists[title]) {
+            alert("A list with this title already exists.");
+            return;
+        }
+        festivalLists[title] = { note: note, genres: {} };
+        document.getElementById("newListForm").style.display = 'none';
+        updateListSelectors();
+        updatePlannerUI(); // Ensures UI updates to show new list even if it's empty
+    }
+
+    function showListDropdown(button) {
+        const selector = button.nextElementSibling;
+        selector.innerHTML = '<option disabled selected>Select list to insert:</option>';
+        Object.keys(festivalLists).forEach(listTitle => {
+            const option = document.createElement('option');
+            option.textContent = listTitle;
+            option.value = listTitle;
+            selector.appendChild(option);
+        });
+        selector.style.display = 'block';
+        selector.onchange = function() {
+            addToPlanner(this.parentElement, this.value);
+            this.style.display = 'none';
+        };
+    }
+
+    function addToPlanner(card, listTitle) {
+        const title = card.querySelector('h5').textContent;
+        const genre = card.querySelector('p').textContent.split(': ')[1];
+        if (!festivalLists[listTitle].genres[genre]) {
+            festivalLists[listTitle].genres[genre] = [];
+        }
+        if (festivalLists[listTitle].genres[genre].includes(title)) {
+            alert("This movie is already in the list!");
+            return;
+        }
+        festivalLists[listTitle].genres[genre].push(title);
         updatePlannerUI();
-    } else {
-        alert("This movie is already in your festival planner!");
     }
-}
+
+    function updateListSelectors() {
+        // Call this function after adding a new list to update dropdowns in all movie cards
+        document.querySelectorAll('.list-selector').forEach(selector => {
+            const currentDisplay = selector.style.display;
+            selector.innerHTML = '<option disabled selected>Select list to insert:</option>';
+            Object.keys(festivalLists).forEach(listTitle => {
+                const option = document.createElement('option');
+                option.textContent = listTitle;
+                option.value = listTitle;
+                selector.appendChild(option);
+            });
+            selector.style.display = currentDisplay;
+        });
+    }
 
     function updatePlannerUI() {
         const plannerContent = document.getElementById("festival-planner-content");
         const plannerCount = document.getElementById("plannerCount");
 
-        // Count total movies in the planner
-        let totalMovies = Object.values(festivalPlanner).reduce((sum, list) => sum + list.length, 0);
-        plannerCount.textContent = totalMovies; // Update the counter in the navbar
+        // Count total movies across all lists
+        let totalMovies = Object.values(festivalLists).reduce((sum, list) => sum + Object.values(list.genres).reduce((sum, genreMovies) => sum + genreMovies.length, 0), 0);
+        plannerCount.textContent = totalMovies;  // Update the movie count in the sidebar
 
-        // Clear planner content if empty
-        if (totalMovies === 0) {
-            plannerContent.innerHTML = "<p class='text-center'>No movies added yet.</p>";
-            return;
-        }
-
-        // Update the sidebar content
-        plannerContent.innerHTML = Object.entries(festivalPlanner)
-            .map(([genre, movies]) => `
-                <div class="genre-section">
-                    <h5>${genre}</h5>
-                    <ul>${movies.map(movie => `
-                        <li class="d-flex justify-content-between">
-                            ${movie} 
-                            <button class="btn btn-sm btn-danger" onclick="removeFromPlanner('${movie}', '${genre}')">❌</button>
-                        </li>`).join("")}
-                    </ul>
+        // Generate content for each list
+        plannerContent.innerHTML = Object.keys(festivalLists).map(listTitle => {
+            const list = festivalLists[listTitle];
+            return `
+                <div class="card bg-dark text-white mb-3">
+                    <div class="card-header">${listTitle}</div>
+                    <div class="card-body">
+                        <h5 class="card-title">${list.note}</h5>
+                        ${Object.keys(list.genres).map(genre => `
+                            <h6>${genre}</h6>
+                            <ul>${list.genres[genre].map(movie => `<li>${movie}</li>`).join("")}</ul>
+                        `).join("")}
+                    </div>
                 </div>
-            `).join("");
-    }
-    function removeFromPlanner(title, genre) {
-    if (festivalPlanner[genre]) {
-        festivalPlanner[genre] = festivalPlanner[genre].filter(movie => movie !== title);
+            `;
+        }).join("");
 
-        // ✅ Remove genre section if empty
-        if (festivalPlanner[genre].length === 0) {
-            delete festivalPlanner[genre];
+        // Show placeholder if no lists are present
+        if (Object.keys(festivalLists).length === 0) {
+            plannerContent.innerHTML = "<p class='text-center text-white'>No lists created yet.</p>";
         }
     }
-    
-    updatePlannerUI();
-}
+
 
 
 
@@ -545,5 +591,3 @@
 
 </body>
 </html>
-
-
