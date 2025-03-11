@@ -240,6 +240,56 @@ def search_actors():
     conn.close()
 
     return jsonify(actors)
+@app.route("/movie_details", methods=["GET"])
+def movie_details():
+    """Fetch details for a single movie by title."""
+    title = request.args.get("title", "").strip()
+
+    if not title:
+        return jsonify({"error": "No title provided"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    sql_query = """
+        SELECT 
+            movies.title,
+            IFNULL(GROUP_CONCAT(DISTINCT genres.genre_name SEPARATOR ', '), 'Unknown') AS genre,
+            IFNULL(movies.avg_rating, 0) AS avg_rating,
+            IFNULL(movies.release_date, 'Unknown') AS release_date,
+            IFNULL(movies.poster_url, '') AS poster_url,
+            IFNULL(GROUP_CONCAT(DISTINCT directors.director_name SEPARATOR ', '), 'Unknown') AS directors,
+            IFNULL(GROUP_CONCAT(DISTINCT actors.actor_name SEPARATOR ', '), 'Unknown') AS actors,
+            IFNULL(movies.runtime, 'Unknown') AS runtime,
+            IFNULL(languages.language_name, 'Unknown') AS language,
+            IFNULL(ratings.imdb_rating, 0) AS imdb_rating,
+            IFNULL(ratings.rotten_tomatoes, 0) AS rt_score,
+            IFNULL(awards.oscars_won, 0) AS oscars,
+            IFNULL(awards.golden_globes_won, 0) AS golden_globes,
+            IFNULL(awards.baftas_won, 0) AS baftas
+        FROM movies
+        LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
+        LEFT JOIN genres ON movie_genres.genreId = genres.id
+        LEFT JOIN movie_directors ON movies.movieId = movie_directors.movieId
+        LEFT JOIN directors ON movie_directors.director_id = directors.id
+        LEFT JOIN movie_actors ON movies.movieId = movie_actors.movieId
+        LEFT JOIN actors ON movie_actors.actor_id = actors.id
+        LEFT JOIN ratings ON movies.movieId = ratings.movieId
+        LEFT JOIN awards ON movies.movieId = awards.movieId
+        LEFT JOIN languages ON movies.language_id = languages.id
+        WHERE movies.title LIKE %s
+        GROUP BY movies.movieId
+    """
+    cursor.execute(sql_query, (f"%{title}%",))
+    movie = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not movie:
+        return jsonify({"error": "Movie not found"}), 404
+
+    return jsonify(movie)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

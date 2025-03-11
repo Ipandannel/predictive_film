@@ -263,6 +263,8 @@
         <input type="text" id="searchInput" class="form-control w-50" placeholder="Search for a movie..." oninput="searchMovies()">
         <button class="btn btn-warning" onclick="toggleFilters()">🔍 Filters</button>
     </div>
+    <div id="movieDetailsCard" class="modal" style="display: none;"></div>
+
     <!-- Edit List Modal -->
     <div id="editListModal" class="modal" style="display:none;">
         <div class="modal-content">
@@ -701,7 +703,6 @@
         festivalLists[newTitle].note = newNote;
         updatePlannerUI();
     }
-
     function updatePlannerUI() {
         const plannerContent = document.getElementById("festival-planner-content");
         plannerContent.innerHTML = Object.keys(festivalLists).map(listTitle => {
@@ -710,29 +711,87 @@
                 <div class="card bg-dark text-white mb-3">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span>${listTitle}</span>
-                        <div>
-                            <button class="btn btn-primary btn-sm" onclick="toggleEditList('${listTitle}')">Edit Title/Note</button>
-                            <button class="btn btn-primary btn-sm" onclick="toggleEditMovies('${listTitle}')">${list.editMode ? 'Done Editing Movies' : 'Edit Movies'}</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteList('${listTitle}')">Delete</button>
-                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="deleteList('${listTitle}')">Delete</button>
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title">${list.note}</h5>
                         ${Object.keys(list.genres).map(genre => `
                             <h6>${genre}</h6>
                             <ul>${list.genres[genre].map(movie => `
-                                <li>${movie} ${list.editMode ? `<button class="btn btn-danger btn-sm" onclick="removeMovieFromList('${listTitle}', '${genre}', '${movie}')">x</button>` : ''}</li>
-                            `).join("")}</ul>
-                        `).join("")}
+                                <li><a href="#" onclick="displayMovieDetails('${movie}');">${movie}</a></li>
+                            `).join('')}</ul>
+                        `).join('')}
                     </div>
                 </div>
             `;
-        }).join("");
+        }).join('');
 
         if (Object.keys(festivalLists).length === 0) {
             plannerContent.innerHTML = "<p class='text-center text-white'>No lists created yet.</p>";
         }
     }
+
+    function fetchMovieDetails(title) {
+        return new Promise((resolve, reject) => {
+            fetch(`/movie_details?title=${encodeURIComponent(title)}`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();  // Parse JSON data from the response
+                }
+                throw new Error('Failed to fetch movie details');
+            })
+            .then(movieDetails => {
+                resolve(movieDetails);  // Resolve the promise with the movie details
+            })
+            .catch(error => {
+                console.error('Error fetching movie details:', error);
+                reject(error);  // Reject the promise if there is an error
+            });
+        });
+    }
+
+    function displayMovieDetails(movieTitle) {
+        fetch(`/movie_details?title=${encodeURIComponent(movieTitle)}`)
+        .then(response => response.json())
+        .then(movie => {
+            if (movie.error) {
+                alert("Movie not found.");
+                return;
+            }
+
+            const detailsCard = document.getElementById('movieDetailsCard');
+            detailsCard.innerHTML = `
+                <div class="card bg-dark text-white">
+                    <div class="card-header d-flex justify-content-between">
+                        <span>${movie.title}</span>
+                        <button class="close btn btn-danger btn-sm" onclick="closeDetails()">×</button>
+                    </div>
+                    <div class="card-body">
+                        <img src="${movie.poster_url}" class="img-fluid rounded mb-3" alt="${movie.title} Poster" style="max-width: 200px;">
+                        <p><strong>Genre:</strong> ${movie.genre}</p>
+                        <p><strong>Director:</strong> ${movie.directors}</p>
+                        <p><strong>Actors:</strong> ${movie.actors}</p>
+                        <p><strong>Runtime:</strong> ${movie.runtime}</p>
+                        <p><strong>Language:</strong> ${movie.language}</p>
+                        <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
+                        <p><strong>Rotten Tomatoes Score:</strong> ${movie.rt_score}%</p>
+                        <p><strong>Oscars Won:</strong> ${movie.oscars}</p>
+                        <p><strong>Golden Globes Won:</strong> ${movie.golden_globes}</p>
+                        <p><strong>BAFTAs Won:</strong> ${movie.baftas}</p>
+                        <p><strong>Release Date:</strong> ${movie.release_date}</p>
+                    </div>
+                </div>
+            `;
+            detailsCard.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error fetching movie details:', error);
+        });
+    }
+
+    function closeDetails() {
+        document.getElementById('movieDetailsCard').style.display = 'none';
+    }
+
     </script>
 
 </body>
