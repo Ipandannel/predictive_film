@@ -485,6 +485,7 @@
                         closeLoginModal();  // Close modal after login
                         checkSessionStatus();  // ✅ Update UI to show "Welcome, username"
                         searchMovies();
+                        fetchPlannerLists();
                     }
                 })
                 .catch(error => console.error("❌ Error during login:", error));
@@ -519,6 +520,7 @@
                 // Show festival planner button
                 if (plannerButton) {
                     plannerButton.style.display = "inline-block";
+                    fetchPlannerLists();
                 }
             } else {
                 if (loginBtn) loginBtn.style.display = "inline-block";
@@ -529,12 +531,152 @@
                 if (plannerButton) {
                     plannerButton.style.display = "none";
                 }
+                document.getElementById("festival-planner-content").innerHTML = "<p>No lists available.</p>";
+            
             }
         })
         .catch(error => console.error("❌ Error checking session:", error));
 }
+    async function fetchPlannerLists() {
+        try {
+            const response = await fetch("/planner/lists");
+            const lists = await response.json();
 
+            const plannerContent = document.getElementById("festival-planner-content");
+            plannerContent.innerHTML = "";
 
+            if (lists.length === 0) {
+                plannerContent.innerHTML = "<p>No planner lists available.</p>";
+                return;
+            }
+
+            for (let list of lists) {
+                let listHtml = `
+                    <div class="card bg-dark text-white mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>${list.title} - <i>${list.note}</i></span>
+                            <div>
+                                <button class="btn btn-warning btn-sm" onclick="fetchMoviesForList(${list.id})">📂 View</button>
+                                <button class="btn btn-danger btn-sm" onclick="deletePlannerList(${list.id})">🗑 Delete</button>
+                            </div>
+                        </div>
+                        <div class="card-body" id="movies-list-${list.id}">
+                            <p>Loading movies...</p>
+                        </div>
+                    </div>
+                `;
+                plannerContent.innerHTML += listHtml;
+                fetchMoviesForList(list.id);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching planner lists:", error);
+        }
+    }
+
+    async function fetchMoviesForList(listId) {
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies`);
+            const movies = await response.json();
+            const movieContainer = document.getElementById(`movies-list-${listId}`);
+
+            if (movies.length === 0) {
+                movieContainer.innerHTML = "<p>No movies added yet.</p>";
+                return;
+            }
+
+            movieContainer.innerHTML = movies.map(movie => `
+                <div class="movie-item">
+                    <img src="${movie.poster_url}" alt="${movie.title}" style="width: 50px;">
+                    <span>${movie.title} (${movie.genre})</span>
+                    <button class="btn btn-sm btn-danger" onclick="removeMovieFromList(${listId}, ${movie.movieId})">❌ Remove</button>
+                </div>
+            `).join("");
+        } catch (error) {
+            console.error("❌ Error fetching movies:", error);
+        }
+    }
+    async function createPlannerList() {
+        const title = document.getElementById("newListTitle").value.trim();
+        const note = document.getElementById("newListNote").value.trim();
+
+        if (!title) {
+            alert("Please enter a title for the list.");
+            return;
+        }
+
+        try {
+            const response = await fetch("/planner/lists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, note })
+            });
+            const data = await response.json();
+            alert(data.message);
+            fetchPlannerLists();  // Refresh planner lists
+        } catch (error) {
+            console.error("❌ Error creating planner list:", error);
+        }
+    }
+
+    async function deletePlannerList(listId) {
+        if (!confirm("Are you sure you want to delete this list?")) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}`, { method: "DELETE" });
+            const data = await response.json();
+            alert(data.message);
+            fetchPlannerLists();  // Refresh planner lists
+        } catch (error) {
+            console.error("❌ Error deleting planner list:", error);
+        }
+    }
+
+    async function addMovieToPlanner(movieId, title, genre) {
+        if (!window.isLoggedIn) {
+            alert("You must be logged in to add movies to a planner.");
+            return;
+        }
+
+        const listId = prompt("Enter the List ID to add this movie:");
+        if (!listId) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ list_id: listId, movieId, genre })
+            });
+            const data = await response.json();
+            alert(data.message);
+            fetchMoviesForList(listId);
+        } catch (error) {
+            console.error("❌ Error adding movie to planner:", error);
+        }
+    }
+
+    async function removeMovieFromList(listId, movieId) {
+        if (!confirm("Are you sure you want to remove this movie?")) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies/${movieId}`, { method: "DELETE" });
+            const data = await response.json();
+            alert(data.message);
+            fetchMoviesForList(listId);
+        } catch (error) {
+            console.error("❌ Error removing movie:", error);
+        }
+    }
+
+    document.getElementById('logoutButton').addEventListener('click', function() {
+        fetch("/logout", { method: "POST" })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                checkSessionStatus();
+                document.getElementById("festival-planner-content").innerHTML = "<p>No lists available.</p>";
+            })
+            .catch(error => console.error("❌ Error during logout:", error));
+    });
     function toggleFilters() {
         let filtersDiv = document.getElementById("filters");
         filtersDiv.style.display = (filtersDiv.style.display === "none" || filtersDiv.style.display === "") ? "block" : "none";

@@ -295,6 +295,83 @@ def movie_details():
         return jsonify({"error": "Movie not found"}), 404
 
     return jsonify(movie)
+@app.route("/planner/lists/<int:list_id>/movies", methods=["POST"])
+def add_movie_to_planner():
+    """Add a movie to a planner list."""
+    if "user_id" not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    user_id = session["user_id"]
+    list_id = request.json.get("list_id")
+    movie_id = request.json.get("movieId")
+    genre = request.json.get("genre")
+
+    if not list_id or not movie_id or not genre:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            "INSERT INTO planner_list_movies (list_id, movieId, genre) VALUES (%s, %s, %s)",
+            (list_id, movie_id, genre)
+        )
+        conn.commit()
+        return jsonify({"message": "Movie added successfully"}), 201
+    except mysql.connector.Error as err:
+        return jsonify({"error": str(err)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/planner/lists/<int:list_id>/movies", methods=["GET"])
+def get_movies_in_list(list_id):
+    """Fetch all movies in a specific planner list."""
+    if "user_id" not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    user_id = session["user_id"]
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute(
+        """
+        SELECT movies.movieId, movies.title, movies.poster_url, planner_list_movies.genre
+        FROM planner_list_movies
+        JOIN movies ON planner_list_movies.movieId = movies.movieId
+        JOIN planner_lists ON planner_list_movies.list_id = planner_lists.id
+        WHERE planner_lists.id = %s AND planner_lists.user_id = %s
+        """,
+        (list_id, user_id),
+    )
+    movies = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return jsonify(movies)
+
+@app.route("/planner/lists/<int:list_id>/movies/<int:movie_id>", methods=["DELETE"])
+def remove_movie_from_list(list_id, movie_id):
+    """Remove a movie from a planner list."""
+    if "user_id" not in session:
+        return jsonify({"error": "User not logged in"}), 401
+
+    user_id = session["user_id"]
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Ensure the list belongs to the user
+    cursor.execute("SELECT id FROM planner_lists WHERE id = %s AND user_id = %s", (list_id, user_id))
+    if not cursor.fetchone():
+        return jsonify({"error": "List not found or not authorized"}), 403
+
+    cursor.execute("DELETE FROM planner_list_movies WHERE list_id = %s AND movieId = %s", (list_id, movie_id))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "Movie removed from planner list"}), 200
 @app.route("/signup", methods=["POST"])
 def signup():
     username = request.form.get("username")
