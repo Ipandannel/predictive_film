@@ -509,8 +509,7 @@ def predict_rating():
     try:
         cursor = conn.cursor()
 
-        # Step 1: Find movies with the exact same genres
-        # First, get the genre IDs for the input genres
+        
         genre_ids = []
         for genre in genres:
             cursor.execute("SELECT id FROM genres WHERE genre = %s", (genre,))
@@ -523,8 +522,7 @@ def predict_rating():
         if not genre_ids:
             return jsonify({"error": "No valid genres provided"}), 400
 
-        # Step 2: Find movies that have exactly these genres
-        # We need to match movies that have all the given genres and no others
+        
         genre_count = len(genre_ids)
         placeholders = ",".join(["%s"] * genre_count)
         query = f"""
@@ -542,7 +540,7 @@ def predict_rating():
         if not matching_movies:
             return jsonify({"error": "No movies found with the exact same genres"}), 404
 
-        # Step 3: Calculate the average rating for these movies
+        
         movie_placeholders = ",".join(["%s"] * len(matching_movies))
         rating_query = f"""
         SELECT AVG(r.rating)
@@ -555,13 +553,13 @@ def predict_rating():
         if avg_rating is None:
             return jsonify({"error": "No ratings available for matching movies"}), 404
 
-        # Step 4: Insert the new movie into the movies table
+        
         cursor.execute(
             "INSERT INTO movies (movieId, title, avg_rating) VALUES (%s, %s, %s)",
             (movie_id, f"{title} (2025)", 0)
         )
 
-        # Step 5: Insert into movie_genres table
+        
         for genre in genres:
             cursor.execute(
                 "INSERT INTO movie_genres (movieId, genreId) SELECT %s, id FROM genres WHERE genre = %s",
