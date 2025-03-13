@@ -5,7 +5,8 @@ WORKDIR /application
 
 # Install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt pandas
+RUN pip install --upgrade pip && \
+    pip install --only-binary=:all: --no-cache-dir -r requirements.txt
 
 # Copy the application files
 COPY . .
