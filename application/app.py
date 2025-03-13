@@ -454,15 +454,146 @@ def filtered_high_ratings():
         conn.close()
 
 
-def background_init():
+
+
+
+@app.route("/record_genre", methods=["POST"])
+def record_genre():
+    data = request.get_json()
+    genre = data.get("genre")
+
+    if not genre:
+        return jsonify({"success": False, "message": "Genre is required"}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"success": False, "message": "Failed to connect to the database"}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM genres WHERE genre = %s", (genre,))
+        genre_exists = cursor.fetchone()
+
+        if not genre_exists:
+            return jsonify({"success": False, "message": "Genre not found in database"}), 404
+
+        
+        return jsonify({"success": True})
+    finally:
+        cursor.close()
+        conn.close()
+
+
+
+
+
+@app.route("/predict_rating", methods=["POST"])
+def predict_rating():
+    data = request.get_json()
+    movie_id = data.get("movieId")
+    title = data.get("title")
+    genres = data.get("genres", [])
+
+    if not movie_id or not title or not genres:
+        return jsonify({"error": "Movie ID, title, and genres are required"}), 400
+
+    try:
+        movie_id = int(movie_id)
+    except ValueError:
+        return jsonify({"error": "Movie ID must be an integer"}), 400
+
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"error": "Failed to connect to the database"}), 500
+
+    try:
+        cursor = conn.cursor()
+
+        # Step 1: Find movies with the exact same genres
+        # First, get the genre IDs for the input genres
+        genre_ids = []
+        for genre in genres:
+            cursor.execute("SELECT id FROM genres WHERE genre = %s", (genre,))
+            result = cursor.fetchone()
+            if result:
+                genre_ids.append(result[0])
+            else:
+                return jsonify({"error": f"Genre {genre} not found"}), 404
+
+        if not genre_ids:
+            return jsonify({"error": "No valid genres provided"}), 400
+
+        # Step 2: Find movies that have exactly these genres
+        # We need to match movies that have all the given genres and no others
+        genre_count = len(genre_ids)
+        placeholders = ",".join(["%s"] * genre_count)
+        query = f"""
+        SELECT mg.movieId
+        FROM movie_genres mg
+        WHERE mg.genreId IN ({placeholders})
+        GROUP BY mg.movieId
+        HAVING COUNT(DISTINCT mg.genreId) = %s
+        AND (SELECT COUNT(*) FROM movie_genres mg2 WHERE mg2.movieId = mg.movieId) = %s
+        """
+        params = genre_ids + [genre_count, genre_count]
+        cursor.execute(query, params)
+        matching_movies = [row[0] for row in cursor.fetchall()]
+
+        if not matching_movies:
+            return jsonify({"error": "No movies found with the exact same genres"}), 404
+
+        # Step 3: Calculate the average rating for these movies
+        movie_placeholders = ",".join(["%s"] * len(matching_movies))
+        rating_query = f"""
+        SELECT AVG(r.rating)
+        FROM ratings r
+        WHERE r.movieId IN ({movie_placeholders})
+        """
+        cursor.execute(rating_query, matching_movies)
+        avg_rating = cursor.fetchone()[0]
+
+        if avg_rating is None:
+            return jsonify({"error": "No ratings available for matching movies"}), 404
+
+        # Step 4: Insert the new movie into the movies table
+        cursor.execute(
+            "INSERT INTO movies (movieId, title, avg_rating) VALUES (%s, %s, %s)",
+            (movie_id, f"{title} (2025)", 0)
+        )
+
+        # Step 5: Insert into movie_genres table
+        for genre in genres:
+            cursor.execute(
+                "INSERT INTO movie_genres (movieId, genreId) SELECT %s, id FROM genres WHERE genre = %s",
+                (movie_id, genre)
+            )
+
+        conn.commit()
+        
+        
+        
+
+        return jsonify({"avg_rating": float(avg_rating)})
+    except mysql.connector.Error as err:
+        conn.rollback()
+        return jsonify({"error": f"Database error: {err}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def background_low_init():
     print("Initializing summary...")
     init_low_rated_summary()
-    print("Initialization completed.")
+    print("Initialization completed for low rated summary.")
+
+def background_high_init():    
     init_high_rated_summary()
-    print("Initialization completed.")
+    print("Initialization completed for high rated summary.")
 
 
-threading.Thread(target=background_init, daemon=True).start()
+threading.Thread(target=background_low_init, daemon=True).start()
+threading.Thread(target=background_high_init, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

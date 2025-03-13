@@ -105,6 +105,41 @@
         </div>
     </div>
 
+    <!-- New Movie Prediction Section -->
+    <div class="mb-3">
+        <h2 class="text-center">🎥 Add New Movie and Predict Rating</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <label for="newMovieIdInput" class="form-label">New Movie ID:</label>
+                <input type="number" id="newMovieIdInput" class="form-control" placeholder="Enter Movie ID">
+            </div>
+            <div class="col-md-4">
+                <label for="newMovieTitleInput" class="form-label">New Movie Title:</label>
+                <input type="text" id="newMovieTitleInput" class="form-control" placeholder="Enter Movie Title">
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4">
+                <label for="newMovieGenreInput" class="form-label">New Movie Genre:</label>
+                <input type="text" id="newMovieGenreInput" class="form-control" placeholder="Enter Genre">
+            </div>
+            <div class="col-md-2 align-self-end">
+                <button class="btn btn-secondary" onclick="recordGenre()">Record Genre</button>
+            </div>
+            <div class="col-md-6 align-self-end">
+                <p id="genreRecordStatus" class="text-success"></p>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-4">
+                <button class="btn btn-success" onclick="predictRating()">Predict Average Rating</button>
+            </div>
+            <div class="col-md-8">
+                <p id="predictionResult" class="text-info"></p>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Fetch and Populate Genres Dropdown
         document.addEventListener("DOMContentLoaded", fetchGenres);
@@ -239,10 +274,92 @@
                 document.getElementById("userBoxplot").innerHTML = `<p class='text-danger'>Error loading boxplot: ${error.message}</p>`;
             }
         }
+
+        // Store recorded genres in an array
+        let recordedGenres = [];
+
+        // Record a genre for the new movie
+        
+
+        async function recordGenre() {
+            const genre = document.getElementById("newMovieGenreInput").value.trim();
+            const statusDiv = document.getElementById("genreRecordStatus");
+
+            if (!genre) {
+                statusDiv.textContent = "Please enter a genre.";
+                statusDiv.className = "text-danger";
+                return;
+            }
+            
+            
+            
+ 
+            
+
+            
+            try {
+                const response = await fetch("/record_genre", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ genre })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    recordedGenres.push(genre);
+                    statusDiv.textContent = "Genre recorded successfully!";
+                    statusDiv.className = "text-success";
+                    document.getElementById("newMovieGenreInput").value = ""; // Clear input
+                } else {
+                    statusDiv.textContent = result.message || "Genre does not exist in the database.";
+                    statusDiv.className = "text-danger";
+                }
+            } catch (error) {
+                statusDiv.textContent = `Error recording genre: ${error.message}`;
+                statusDiv.className = "text-danger";
+            }
+            
+        }
+
+
+
+
+        // Predict the average rating for the new movie
+        async function predictRating() {
+            const movieId = document.getElementById("newMovieIdInput").value.trim();
+            const title = document.getElementById("newMovieTitleInput").value.trim();
+            const resultDiv = document.getElementById("predictionResult");
+
+            if (!movieId || !title || recordedGenres.length === 0) {
+                resultDiv.textContent = "Please enter movie ID, title, and at least one genre.";
+                resultDiv.className = "text-danger";
+                return;
+            }
+
+            try {
+                const response = await fetch("/predict_rating", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ movieId, title, genres: recordedGenres })
+                });
+                const result = await response.json();
+
+                if (result.error) {
+                    resultDiv.textContent = result.error;
+                    resultDiv.className = "text-danger";
+                } else {
+                    resultDiv.textContent = `The average rating for movies with the same genres is: ${result.avg_rating.toFixed(2)}`;
+                    resultDiv.className = "text-info";
+                    recordedGenres = []; // Clear genres after prediction
+                }
+            } catch (error) {
+                resultDiv.textContent = `Error predicting rating: ${error.message}`;
+                resultDiv.className = "text-danger";
+            }
+        }
     </script>
 
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91b9c45078227bd0',t:'MTc0MTE3OTMxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91c15c1818954552',t:'MTc0MTI1ODkzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91c923ad7d7d4526',t:'MTc0MTM0MDUxMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'91f2843009e9c01a',t:'MTc0MTc3NDM3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
-
 
