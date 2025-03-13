@@ -1,20 +1,16 @@
-import threading
-
-from flask import Flask, jsonify, request, render_template, url_for
+from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 import mysql.connector
 import os
-import pandas as pd
-import matplotlib
-matplotlib.use('Agg')  
-import matplotlib.pyplot as plt
-import seaborn as sns
-import io
-import base64
-
-
-app = Flask(__name__, static_folder='static', template_folder='templates')
+import bcrypt 
+from flask_session import Session
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'my_secret_key'
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+print("Secret Key:", app.config['SECRET_KEY'])
 
 def get_db_connection():
+    """Establishes a connection to the database."""
     try:
         connection = mysql.connector.connect(
             host=os.environ.get("DATABASE_HOST", "database"),
@@ -28,456 +24,340 @@ def get_db_connection():
         print(f"Database connection failed: {err}")
         return None
 
-
-
-def init_low_rated_summary():
-   
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
-
-    cursor = conn.cursor()
-
-    print("initiate the temp table")
-    create_and_populate_low_rated_temp_table(conn, "WHERE r.rating < 3.0")
-    print("initiate the result table")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS low_rated_summary (
-            userId INT,
-            low_rated_genre VARCHAR(255),
-            other_genre VARCHAR(255),
-            avg_other_rating FLOAT,
-            rating_count INT,
-            PRIMARY KEY (userId, low_rated_genre, other_genre)
-        )
-    """)
-    cursor.execute("TRUNCATE TABLE low_rated_summary")
-    print("calculate the result data and result it into the result table")
-
-    cursor.execute("""
-            INSERT INTO low_rated_summary (userId, low_rated_genre, other_genre, avg_other_rating, rating_count)
-            SELECT lr.userId, lr.genre AS low_rated_genre, g.genre AS other_genre, 
-                   AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
-            FROM low_rated lr
-            JOIN ratings r ON lr.userId = r.userId
-            JOIN movies m ON r.movieId = m.movieId
-            JOIN movie_genres mg ON m.movieId = mg.movieId
-            JOIN genres g ON mg.genreId = g.id
-            WHERE r.movieId != lr.movieId               
-            GROUP BY lr.userId, lr.genre, g.genre
-            HAVING COUNT(r.rating) > 5
-    """)
-    print(f"calculation finished:{cursor.rowcount}")
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-def init_high_rated_summary():
-    
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
-
-    cursor = conn.cursor()
-
-    print("initiate the temp table")
-    create_and_populate_high_rated_temp_table(conn, "WHERE r.rating > 4.0")
-    print("initiate the result table")
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS high_rated_summary (
-            userId INT,
-            high_rated_genre VARCHAR(255),
-            other_genre VARCHAR(255),
-            avg_other_rating FLOAT,
-            rating_count INT,
-            PRIMARY KEY (userId, high_rated_genre, other_genre)
-        )
-    """)
-    cursor.execute("TRUNCATE TABLE high_rated_summary")
-    print("calculate the result data and insert it into the result table")
-
-    cursor.execute("""
-            INSERT INTO high_rated_summary (userId, high_rated_genre, other_genre, avg_other_rating, rating_count)
-            SELECT lr.userId, lr.genre AS high_rated_genre, g.genre AS other_genre, 
-                   AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
-            FROM high_rated lr
-            JOIN ratings r ON lr.userId = r.userId
-            JOIN movies m ON r.movieId = m.movieId
-            JOIN movie_genres mg ON m.movieId = mg.movieId
-            JOIN genres g ON mg.genreId = g.id
-            WHERE r.movieId != lr.movieId
-            GROUP BY lr.userId, lr.genre, g.genre
-            HAVING COUNT(r.rating) > 5
-    """)
-    print(f"calculation finished:{cursor.rowcount}")
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-
-
-def create_and_populate_low_rated_temp_table(conn, condition_query, params=None):
-    cursor = conn.cursor()
-    try:
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS low_rated (
-                userId INT NOT NULL,
-                movieId INT NOT NULL,
-                rating FLOAT NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                genre VARCHAR(50) NOT NULL,
-                PRIMARY KEY (userId, movieId, genre)
-            )
-        """)
-
-        cursor.execute("TRUNCATE TABLE low_rated")
-
-        cursor.execute(f"""
-            INSERT IGNORE INTO low_rated (userId, movieId, rating, title, genre)
-            SELECT r.userId, r.movieId, r.rating, m.title, g.genre
-            FROM ratings r
-            JOIN movies m ON r.movieId = m.movieId
-            JOIN movie_genres mg ON m.movieId = mg.movieId
-            JOIN genres g ON mg.genreId = g.id
-            {condition_query}
-        """, params or ())
-        conn.commit()
-        print("low_rated temporary table created and populated successfully.")
-    except mysql.connector.Error as err:
-        print(f"Failed to create or populate low_rated temp table: {err}")
-        conn.rollback()
-        raise
-    finally:
-        cursor.close()
-
-
-def create_and_populate_high_rated_temp_table(conn, condition_query, params=None):
-    cursor = conn.cursor()
-    try:
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS high_rated (
-                userId INT NOT NULL,
-                movieId INT NOT NULL,
-                rating FLOAT NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                genre VARCHAR(50) NOT NULL,
-                PRIMARY KEY (userId, movieId, genre)
-            )
-        """)
-
-        cursor.execute("TRUNCATE TABLE high_rated")
-
-        cursor.execute(f"""
-            INSERT IGNORE INTO high_rated (userId, movieId, rating, title, genre)
-            SELECT r.userId, r.movieId, r.rating, m.title, g.genre
-            FROM ratings r
-            JOIN movies m ON r.movieId = m.movieId
-            JOIN movie_genres mg ON m.movieId = mg.movieId
-            JOIN genres g ON mg.genreId = g.id
-            {condition_query}
-        """, params or ())
-        conn.commit()
-        print("high_rated temporary table created and populated successfully.")
-    except mysql.connector.Error as err:
-        print(f"Failed to create or populate high_rated temp table: {err}")
-        conn.rollback()
-        raise
-    finally:
-        cursor.close()
-
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
 
 @app.route("/search", methods=["GET"])
 def search_movies():
+    """Search for movies based on filters."""
     query = request.args.get("q", "").strip()
-    genre = request.args.get("genre", "").strip()
+    genres = request.args.get("genres", "").strip().split(",") if request.args.get("genres") else []
     min_rating = request.args.get("min_rating", "").strip()
     max_rating = request.args.get("max_rating", "").strip()
+    director = request.args.get("director", "").strip()
+    actor = request.args.get("actor", "").strip()
+    release_date_from = request.args.get("releaseDateFrom", "").strip()
+    release_date_to = request.args.get("releaseDateTo", "").strip()
+    min_runtime = request.args.get("min_runtime", "").strip()
+    max_runtime = request.args.get("max_runtime", "").strip()
+    language = request.args.get("language", "").strip()
+    min_oscars = request.args.get("minOscars", "").strip()
+    min_golden_globes = request.args.get("minGoldenGlobes", "").strip()
+    min_baftas = request.args.get("minBAFTAs", "").strip()
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     sql_query = """
-        SELECT m.movieId, m.title, 
-               IFNULL(GROUP_CONCAT(DISTINCT g.genre SEPARATOR ', '), 'Unknown') AS genre,
-               IFNULL(m.avg_rating, 0) AS avg_rating
-        FROM movies m
-        LEFT JOIN movie_genres mg ON m.movieId = mg.movieId
-        LEFT JOIN genres g ON mg.genreId = g.id
+        SELECT 
+            movies.movieId, movies.title, 
+            IFNULL(GROUP_CONCAT(DISTINCT genres.genre_name SEPARATOR ', '), 'Unknown') AS genre,
+            IFNULL(movies.avg_rating, 0) AS avg_rating,
+            IFNULL(movies.release_date, 'Unknown') AS release_date,
+            IFNULL(movies.poster_url, '') AS poster_url,
+            IFNULL(GROUP_CONCAT(DISTINCT directors.director_name SEPARATOR ', '), 'Unknown') AS directors,
+            IFNULL(GROUP_CONCAT(DISTINCT actors.actor_name SEPARATOR ', '), 'Unknown') AS actors,
+            IFNULL(movies.runtime, 'Unknown') AS runtime,
+            IFNULL(languages.language_name, 'Unknown') AS language,
+            IFNULL(ratings.imdb_rating, 0) AS imdb_rating,
+            IFNULL(ratings.rotten_tomatoes, 0) AS rt_score,
+            IFNULL(awards.oscars_won, 0) AS oscars,
+            IFNULL(awards.golden_globes_won, 0) AS golden_globes,
+            IFNULL(awards.baftas_won, 0) AS baftas
+        FROM movies
+        LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
+        LEFT JOIN genres ON movie_genres.genreId = genres.id
+        LEFT JOIN movie_directors ON movies.movieId = movie_directors.movieId
+        LEFT JOIN directors ON movie_directors.director_id = directors.id
+        LEFT JOIN movie_actors ON movies.movieId = movie_actors.movieId
+        LEFT JOIN actors ON movie_actors.actor_id = actors.id
+        LEFT JOIN ratings ON movies.movieId = ratings.movieId
+        LEFT JOIN awards ON movies.movieId = awards.movieId
+        LEFT JOIN languages ON movies.language_id = languages.id  -- ✅ FIXED LANGUAGE JOIN
         WHERE 1=1
     """
     query_params = []
 
+    # ✅ Search by title
     if query:
-        sql_query += " AND LOWER(m.title) LIKE LOWER(%s)"
+        sql_query += " AND LOWER(movies.title) LIKE LOWER(%s)"
         query_params.append(f"%{query}%")
 
-    if genre:
-        sql_query += " AND g.genre = %s"
-        query_params.append(genre)
+    # ✅ Filter by genres (Ensures only movies with at least one selected genre appear)
+    if genres:
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT mg.movieId FROM movie_genres mg 
+                JOIN genres g ON mg.genreId = g.id 
+                WHERE g.genre_name IN ({})
+                GROUP BY mg.movieId
+                HAVING COUNT(DISTINCT g.genre_name) = %s
+            )
+        """.format(", ".join(["%s"] * len(genres)))
+        query_params.extend(genres)
+        query_params.append(len(genres))  # Ensure all selected genres exist in the movie
 
+    # ✅ Filter by director
+    if director:
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT md.movieId FROM movie_directors md 
+                JOIN directors d ON md.director_id = d.id 
+                WHERE d.director_name LIKE %s
+            )
+        """
+        query_params.append(f"%{director}%")
+
+    # ✅ Filter by actor
+    if actor:
+        sql_query += """
+            AND movies.movieId IN (
+                SELECT ma.movieId FROM movie_actors ma 
+                JOIN actors a ON ma.actor_id = a.id 
+                WHERE a.actor_name LIKE %s
+            )
+        """
+        query_params.append(f"%{actor}%")
+
+    # ✅ Filter by rating
     if min_rating:
-        sql_query += " AND m.avg_rating >= %s"
+        sql_query += " AND movies.avg_rating >= %s"
         query_params.append(float(min_rating))
     if max_rating:
-        sql_query += " AND m.avg_rating <= %s"
+        sql_query += " AND movies.avg_rating <= %s"
         query_params.append(float(max_rating))
 
-    sql_query += " GROUP BY m.movieId LIMIT 10;"
+    # ✅ Filter by release date
+    if release_date_from:
+        sql_query += " AND movies.release_date >= %s"
+        query_params.append(release_date_from)
+    if release_date_to:
+        sql_query += " AND movies.release_date <= %s"
+        query_params.append(release_date_to)
+
+    # ✅ Filter by runtime
+    if min_runtime:
+        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) >= %s"
+        query_params.append(int(min_runtime))
+    if max_runtime:
+        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) <= %s"
+        query_params.append(int(max_runtime))
+
+    # ✅ Filter by language
+    if language:
+        sql_query += " AND languages.language_name = %s"
+        query_params.append(language)
+
+    # ✅ Filter by awards
+    if min_oscars:
+        sql_query += " AND awards.oscars_won >= %s"
+        query_params.append(int(min_oscars))
+    if min_golden_globes:
+        sql_query += " AND awards.golden_globes_won >= %s"
+        query_params.append(int(min_golden_globes))
+    if min_baftas:
+        sql_query += " AND awards.baftas_won >= %s"
+        query_params.append(int(min_baftas))
+
+    sql_query += " GROUP BY movies.movieId LIMIT 20;"  # ✅ Removed COUNT filter to allow more results
 
     cursor.execute(sql_query, tuple(query_params))
     movies = cursor.fetchall()
 
     cursor.close()
     conn.close()
-
-    return jsonify(movies)
-
-@app.route("/movies")
-def get_movies():
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
-
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT movieId, title, IFNULL(avg_rating, 0) AS avg_rating FROM movies;")
-    movies = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    
     return jsonify(movies)
 
 @app.route("/genres", methods=["GET"])
 def get_genres():
+    """Fetch all available genres for filtering."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT DISTINCT genre FROM genres ORDER BY genre;")
-    genres = [row["genre"] for row in cursor.fetchall()]
+    cursor.execute("SELECT genre_name FROM genres ORDER BY genre_name;")
+    genres = [row["genre_name"] for row in cursor.fetchall()]
 
     cursor.close()
     conn.close()
 
     return jsonify(genres)
 
-
-
-
-@app.route("/analyze/user_genre_rating_boxplot", methods=["GET"])
-def user_genre_rating_boxplot():
-    user_id = request.args.get("userId")
-    if not user_id:
-        return jsonify({"error": "userId is required"}), 400
-
-    try:
-        user_id = int(user_id)  
-    except ValueError:
-        return jsonify({"error": "userId must be an integer"}), 400
+@app.route("/search_directors", methods=["GET"])
+def search_directors():
+    """Search for directors based on user input."""
+    search_query = request.args.get("q", "").strip().lower()
 
     conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
+    cursor = conn.cursor(dictionary=True)
 
-    try:
-        cursor = conn.cursor(dictionary=True)
-
+    if not search_query:
+        cursor.execute("SELECT director_name FROM directors ORDER BY director_name ASC LIMIT 10;")
+    else:
         cursor.execute("""
-            SELECT r.userId, g.genre, r.rating
-            FROM ratings r
-            JOIN movies m ON r.movieId = m.movieId
-            JOIN movie_genres mg ON m.movieId = mg.movieId
-            JOIN genres g ON mg.genreId = g.id
-            WHERE r.userId = %s
-        """, (user_id,))
-        data = cursor.fetchall()
+            SELECT director_name FROM directors 
+            WHERE LOWER(director_name) LIKE %s 
+            ORDER BY director_name ASC 
+            LIMIT 10;
+        """, (f"%{search_query}%",))
 
-        if not data or len(data) == 0:
-            return jsonify({"error": f"No data available for userId {user_id}"}), 200
+    directors = [row["director_name"] for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(directors)
+@app.route("/languages", methods=["GET"])
+def get_languages():
+    """Fetch all available languages."""
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT language_name FROM languages ORDER BY language_name;")
+    languages = [row["language_name"] for row in cursor.fetchall()]
 
 
-        df = pd.DataFrame(data)
-        plt.figure(figsize=(12, 6))
-        sns.boxplot(data=df, x='genre', y='rating')
-        plt.title(f'Rating Distribution for User {user_id} Across Genres')
-        plt.xlabel('Genre')
-        plt.ylabel('Rating')
-        plt.xticks(rotation=45)
+    cursor.close()
+    conn.close()
 
+    return jsonify(languages)
+@app.route("/search_actors", methods=["GET"])
+def search_actors():
+    """Search for actors based on user input."""
+    search_query = request.args.get("q", "").strip().lower()
 
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight')
-        buf.seek(0)
-        image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-        buf.close()
-        plt.close()
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
 
-        return jsonify({"image": image_base64})
+    if not search_query:
+        cursor.execute("SELECT actor_name FROM actors ORDER BY actor_name ASC LIMIT 10;")
+    else:
+        cursor.execute("""
+            SELECT actor_name FROM actors 
+            WHERE LOWER(actor_name) LIKE %s 
+            ORDER BY actor_name ASC 
+            LIMIT 10;
+        """, (f"%{search_query}%",))
+
+    actors = [row["actor_name"] for row in cursor.fetchall()]
+
+    cursor.close()
+    conn.close()
+
+    return jsonify(actors)
+@app.route("/movie_details", methods=["GET"])
+def movie_details():
+    """Fetch details for a single movie by title."""
+    title = request.args.get("title", "").strip()
+
+    if not title:
+        return jsonify({"error": "No title provided"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    sql_query = """
+        SELECT 
+            movies.title,
+            IFNULL(GROUP_CONCAT(DISTINCT genres.genre_name SEPARATOR ', '), 'Unknown') AS genre,
+            IFNULL(movies.avg_rating, 0) AS avg_rating,
+            IFNULL(movies.release_date, 'Unknown') AS release_date,
+            IFNULL(movies.poster_url, '') AS poster_url,
+            IFNULL(GROUP_CONCAT(DISTINCT directors.director_name SEPARATOR ', '), 'Unknown') AS directors,
+            IFNULL(GROUP_CONCAT(DISTINCT actors.actor_name SEPARATOR ', '), 'Unknown') AS actors,
+            IFNULL(movies.runtime, 'Unknown') AS runtime,
+            IFNULL(languages.language_name, 'Unknown') AS language,
+            IFNULL(ratings.imdb_rating, 0) AS imdb_rating,
+            IFNULL(ratings.rotten_tomatoes, 0) AS rt_score,
+            IFNULL(awards.oscars_won, 0) AS oscars,
+            IFNULL(awards.golden_globes_won, 0) AS golden_globes,
+            IFNULL(awards.baftas_won, 0) AS baftas
+        FROM movies
+        LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
+        LEFT JOIN genres ON movie_genres.genreId = genres.id
+        LEFT JOIN movie_directors ON movies.movieId = movie_directors.movieId
+        LEFT JOIN directors ON movie_directors.director_id = directors.id
+        LEFT JOIN movie_actors ON movies.movieId = movie_actors.movieId
+        LEFT JOIN actors ON movie_actors.actor_id = actors.id
+        LEFT JOIN ratings ON movies.movieId = ratings.movieId
+        LEFT JOIN awards ON movies.movieId = awards.movieId
+        LEFT JOIN languages ON movies.language_id = languages.id
+        WHERE movies.title LIKE %s
+        GROUP BY movies.movieId
+    """
+    cursor.execute(sql_query, (f"%{title}%",))
+    movie = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not movie:
+        return jsonify({"error": "Movie not found"}), 404
+
+    return jsonify(movie)
+@app.route("/signup", methods=["POST"])
+def signup():
+    username = request.form.get("username")
+    password = request.form.get("password")
+    print("Signup attempted with:", username)  # Debug print
+
+    if not username or not password:
+        print("Missing username or password")
+        return jsonify({"error": "Username and password required"}), 400
+
+    # Hash the password using bcrypt
+    import bcrypt
+    hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+            (username, hashed_password)
+        )
+        conn.commit()
+        print("User inserted:", username)
     except mysql.connector.Error as err:
-        return jsonify({"error": f"Query failed: {err}"}), 500
-    except Exception as err:
-        return jsonify({"error": f"Visualization failed: {err}"}), 500
+        print("Database error:", err)
+        if err.errno == 1062:
+            return jsonify({"error": "Username already exists"}), 409
+        else:
+            return jsonify({"error": str(err)}), 500
     finally:
         cursor.close()
         conn.close()
+    
+    return jsonify({"message": "Signup successful"}), 201
 
-
-@app.route("/analyze/filtered_low_ratings", methods=["GET"])
-def filtered_low_ratings():
-    user_id = request.args.get("userId")
-    genre = request.args.get("genre")
-    if not user_id or not genre:
-        return jsonify({"error": "userId and genre are required"}), 400
-
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
     conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, password_hash FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not user or not bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+        return jsonify({"error": "Invalid username or password"}), 401
+    session["user_id"] = user["id"]
+    session["username"] = username
+    return jsonify({"message": "Login successful", "username": username}), 200
 
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT userId, low_rated_genre, other_genre, avg_other_rating, rating_count
-            FROM low_rated_summary
-            WHERE userId = %s AND low_rated_genre = %s AND avg_other_rating <= 3
-            ORDER BY other_genre
-        """, (user_id, genre))
-        data = cursor.fetchall()
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"message": "Logged out successfully"}), 200
 
-        if not data or len(data) == 0:
-            return jsonify({"message": f"No data with avg_other_rating <= 3 for user {user_id} and genre {genre}"}), 200
-
-
-        table_html = """
-        <table border="1" style="border-collapse: collapse; width: 100%;">
-            <thead>
-                <tr>
-                    <th>User ID</th>
-                    <th>Low Rated Genre</th>
-                    <th>Other Genre</th>
-                    <th>Avg Other Rating</th>
-                    <th>Rating Count</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        for row in data:
-            table_html += f"""
-                <tr>
-                    <td>{row['userId']}</td>
-                    <td>{row['low_rated_genre']}</td>
-                    <td>{row['other_genre']}</td>
-                    <td>{row['avg_other_rating']:.1f}</td>
-                    <td>{row['rating_count']}</td>
-                </tr>
-            """
-        table_html += """
-            </tbody>
-        </table>
-        """
-
-        return jsonify({"table_html": table_html})
-    except mysql.connector.Error as err:
-        return jsonify({"error": f"Query failed: {err}"}), 500
-    except Exception as err:
-        return jsonify({"error": f"Table generation failed: {err}"}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-@app.route("/analyze/filtered_high_ratings", methods=["GET"])
-def filtered_high_ratings():
-    user_id = request.args.get("userId")
-    genre = request.args.get("genre")
-    if not user_id or not genre:
-        return jsonify({"error": "userId and genre are required"}), 400
-
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
-
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT userId, high_rated_genre, other_genre, avg_other_rating, rating_count
-            FROM high_rated_summary
-            WHERE userId = %s AND high_rated_genre = %s AND avg_other_rating >= 4
-            ORDER BY other_genre
-        """, (user_id, genre))
-        data = cursor.fetchall()
-
-        if not data or len(data) == 0:
-            return jsonify({"message": f"No data with avg_other_rating >= 4 for user {user_id} and genre {genre}"}), 200
-
-        table_html = """
-        <table border="1" style="border-collapse: collapse; width: 100%;">
-            <thead>
-                <tr>
-                    <th>User ID</th>
-                    <th>High Rated Genre</th>
-                    <th>Other Genre</th>
-                    <th>Avg Other Rating</th>
-                    <th>Rating Count</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        for row in data:
-            table_html += f"""
-                <tr>
-                    <td>{row['userId']}</td>
-                    <td>{row['high_rated_genre']}</td>
-                    <td>{row['other_genre']}</td>
-                    <td>{row['avg_other_rating']:.1f}</td>
-                    <td>{row['rating_count']}</td>
-                </tr>
-            """
-        table_html += """
-            </tbody>
-        </table>
-        """
-
-        return jsonify({"table_html": table_html})
-    except mysql.connector.Error as err:
-        return jsonify({"error": f"Query failed: {err}"}), 500
-    except Exception as err:
-        return jsonify({"error": f"Table generation failed: {err}"}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-
-def background_init():
-    print("Initializing summary...")
-    init_low_rated_summary()
-    print("Initialization completed.")
-    init_high_rated_summary()
-    print("Initialization completed.")
-
-
-threading.Thread(target=background_init, daemon=True).start()
-
-@app.route("/genre-analysis")
-def genre_analysis():
-    print("Rendering genre_report.html template")
-    return render_template("genre_report.html")
-
-@app.route("/personality-analysis")
-def personality_analysis():
-    return render_template("personality_traits.html")
-
-@app.route("/test-image")
-def test_image():
-    return f"""<img src="{url_for('static', filename='images/genre_avg_ratings.png')}" 
-                    alt="Test Image">"""
-
-
+@app.route("/check_session", methods=["GET"])
+def check_session():
+    if "user_id" in session:
+        return jsonify({"logged_in": True, "username": session["username"]}), 200
+    return jsonify({"logged_in": False}), 200
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000,debug=True)
