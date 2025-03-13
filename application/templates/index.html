@@ -458,8 +458,8 @@
     document.addEventListener("DOMContentLoaded", function () {
         fetchGenres();
         fetchLanguages();
-        searchMovies();
         checkSessionStatus(); // ✅ Check if user is logged in
+        searchMovies();
 
         // ✅ Ensure Login Form Event Listener is attached
         const loginForm = document.getElementById("loginForm");
@@ -484,6 +484,7 @@
                         alert(data.message);
                         closeLoginModal();  // Close modal after login
                         checkSessionStatus();  // ✅ Update UI to show "Welcome, username"
+                        searchMovies();
                     }
                 })
                 .catch(error => console.error("❌ Error during login:", error));
@@ -494,37 +495,44 @@
     });
 
 
-
     function checkSessionStatus() {
-        fetch("/check_session")
-            .then(response => response.json())
-            .then(data => {
-                console.log("✅ Session check:", data);  // Debugging response
+    fetch("/check_session")
+        .then(response => response.json())
+        .then(data => {
+            // Store login state globally
+            window.isLoggedIn = data.logged_in;
 
-                const loginBtn = document.querySelector(".btn-login");
-                const signupBtn = document.querySelector(".btn-signup");
-                const logoutBtn = document.getElementById("logoutButton");
-                const welcomeText = document.getElementById("welcomeMessage");
+            const loginBtn = document.querySelector(".btn-login");
+            const signupBtn = document.querySelector(".btn-signup");
+            const logoutBtn = document.getElementById("logoutButton");
+            const welcomeText = document.getElementById("welcomeMessage");
+            const plannerButton = document.getElementById("plannerButton");
 
-                if (data.logged_in) {
-                    // ✅ User is logged in: Hide login/signup, show "Welcome, username" & logout
-                    if (loginBtn) loginBtn.style.display = "none";
-                    if (signupBtn) signupBtn.style.display = "none";
-                    if (logoutBtn) logoutBtn.style.display = "inline-block";
-                    if (welcomeText) {
-                        welcomeText.innerHTML = `Welcome, <strong>${data.username}</strong>`;
-                        welcomeText.style.display = "inline-block";
-                    }
-                } else {
-                    // ❌ User is not logged in: Show login/signup, hide "Welcome" & logout
-                    if (loginBtn) loginBtn.style.display = "inline-block";
-                    if (signupBtn) signupBtn.style.display = "inline-block";
-                    if (logoutBtn) logoutBtn.style.display = "none";
-                    if (welcomeText) welcomeText.style.display = "none";
+            if (data.logged_in) {
+                if (loginBtn) loginBtn.style.display = "none";
+                if (signupBtn) signupBtn.style.display = "none";
+                if (logoutBtn) logoutBtn.style.display = "inline-block";
+                if (welcomeText) {
+                    welcomeText.innerHTML = `Welcome, <strong>${data.username}</strong>`;
+                    welcomeText.style.display = "inline-block";
                 }
-            })
-            .catch(error => console.error("❌ Error checking session:", error));
-    }
+                // Show festival planner button
+                if (plannerButton) {
+                    plannerButton.style.display = "inline-block";
+                }
+            } else {
+                if (loginBtn) loginBtn.style.display = "inline-block";
+                if (signupBtn) signupBtn.style.display = "inline-block";
+                if (logoutBtn) logoutBtn.style.display = "none";
+                if (welcomeText) welcomeText.style.display = "none";
+                // Hide festival planner button
+                if (plannerButton) {
+                    plannerButton.style.display = "none";
+                }
+            }
+        })
+        .catch(error => console.error("❌ Error checking session:", error));
+}
 
 
     function toggleFilters() {
@@ -614,25 +622,28 @@
             updatePlannerUI(); // ✅ Ensure UI updates immediately
             return;
         }
-
-        resultsContainer.innerHTML = movies.map(movie => `
-            <div class="movie-card">
-                <img src="${movie.poster_url}" alt="${movie.title} Poster">
-                <h5>${movie.title}</h5>
-                <p><strong>Genre:</strong> ${movie.genre}</p>
-                <p><strong>Director:</strong> ${movie.directors}</p>
-                <p><strong>Actors:</strong> ${movie.actors}</p>
-                <p><strong>Language:</strong> ${movie.language}</p>
-                <p><strong>Runtime:</strong> ${movie.runtime}</p>
-                <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
-                <button class="btn btn-warning mt-2" onclick="showListDropdown(this)">📅 Add to Planner</button>
-                <select class="form-control mt-2 list-selector" style="display: none;"></select>
-
-
-
-            </div>
-        `).join("");
-
+        resultsContainer.innerHTML = movies.map(movie => {
+            let plannerHTML = "";
+            if (window.isLoggedIn) {
+                plannerHTML = `
+                    <button class="btn btn-warning mt-2" onclick="showListDropdown(this)">📅 Add to Planner</button>
+                    <select class="form-control mt-2 list-selector" style="display: none;"></select>
+                `;
+            }
+            return `
+                <div class="movie-card">
+                    <img src="${movie.poster_url}" alt="${movie.title} Poster">
+                    <h5>${movie.title}</h5>
+                    <p><strong>Genre:</strong> ${movie.genre}</p>
+                    <p><strong>Director:</strong> ${movie.directors}</p>
+                    <p><strong>Actors:</strong> ${movie.actors}</p>
+                    <p><strong>Language:</strong> ${movie.language}</p>
+                    <p><strong>Runtime:</strong> ${movie.runtime}</p>
+                    <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
+                    ${plannerHTML}
+                </div>
+            `;
+        }).join("");
     } catch (error) {
         console.error("Error fetching movies:", error);
     }
@@ -711,6 +722,7 @@
                 console.log("✅ Logout response:", data);  // Debugging
                 alert(data.message);  // Show logout success message
                 checkSessionStatus();  // ✅ Refresh UI after logout
+                searchMovies();
             })
             .catch(error => console.error("❌ Error during logout:", error));
     }
@@ -1004,8 +1016,7 @@
             } else {
                 alert(data.message);
                 closeLoginModal();
-                // Optionally, reload page or update UI to show logged-in state.
-                location.reload();
+                checkSessionStatus(); 
             }
         })
         .catch(error => console.error('Error during login:', error));
