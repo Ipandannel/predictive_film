@@ -530,9 +530,8 @@ def predict_rating():
         WHERE mg.genreId IN ({placeholders})
         GROUP BY mg.movieId
         HAVING COUNT(DISTINCT mg.genreId) = %s
-        AND (SELECT COUNT(*) FROM movie_genres mg2 WHERE mg2.movieId = mg.movieId) = %s
         """
-        params = genre_ids + [genre_count, genre_count]
+        params = genre_ids + [genre_count]
         cursor.execute(query, params)
         matching_movies = [row[0] for row in cursor.fetchall()]
 
@@ -578,6 +577,14 @@ def predict_rating():
         cursor.close()
         conn.close()
 
+@app.route("/genre-analysis")
+def genre_analysis():
+    print("Rendering genre_report.html template")
+    return render_template("genre_report.html")
+
+@app.route("/personality-analysis")
+def personality_analysis():
+    return render_template("personality_traits.html")
 
 def background_low_init():
     print("Initializing summary...")
@@ -591,15 +598,6 @@ def background_high_init():
 
 threading.Thread(target=background_low_init, daemon=True).start()
 threading.Thread(target=background_high_init, daemon=True).start()
-
-@app.route("/genre-analysis")
-def genre_analysis():
-    print("Rendering genre_report.html template")
-    return render_template("genre_report.html")
-
-@app.route("/personality-analysis")
-def personality_analysis():
-    return render_template("personality_traits.html")
 
 
 if __name__ == "__main__":
