@@ -1,6 +1,5 @@
 import threading
-
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, url_for
 import mysql.connector
 import os
 import pandas as pd
@@ -12,7 +11,7 @@ import io
 import base64
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
 
 def get_db_connection():
     try:
@@ -592,6 +591,16 @@ def background_high_init():
 
 threading.Thread(target=background_low_init, daemon=True).start()
 threading.Thread(target=background_high_init, daemon=True).start()
+
+@app.route("/genre-analysis")
+def genre_analysis():
+    print("Rendering genre_report.html template")
+    return render_template("genre_report.html")
+
+@app.route("/personality-analysis")
+def personality_analysis():
+    return render_template("personality_traits.html")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
