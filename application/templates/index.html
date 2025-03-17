@@ -323,89 +323,34 @@
             <!-- Language Dropdown -->
             <div class="col-md-4">
                 <label class="form-label">Language:</label>
-                <select id="languageSelect" class="form-control" onchange="searchMovies()">
+                <select id="languageSelect" class="form-control" multiple onchange="searchMovies()">
                     <option value="">All Languages</option>
                 </select>
             </div>
 
             <!-- Director Input with Auto-Suggestions -->
             <div class="col-md-4">
-                <label class="form-label">Director:</label>
-                <input type="text" id="directorSearch" class="form-control" placeholder="Search for a director..." oninput="fetchDirectors()">
+                <label class="form-label">Directors:</label>
+                <input type="text" id="directorInput" class="form-control" placeholder="Type to search for directors..." oninput="directorAutocomplete()">
                 <ul id="directorSuggestions" class="suggestion-box"></ul>
+                <!-- Container for selected directors -->
+                <div id="selectedDirectors"></div>
             </div>
-
-            <!-- Actor Input with Auto-Suggestions -->
+        
+            <!-- Actor Autocomplete Input -->
             <div class="col-md-4">
-                <label class="form-label">Lead Actor:</label>
-                <input type="text" id="actorSearch" class="form-control" placeholder="Search for an actor..." oninput="fetchActors()">
+                <label class="form-label">Lead Actors:</label>
+                <input type="text" id="actorInput" class="form-control" placeholder="Type to search for actors..." oninput="actorAutocomplete()">
                 <ul id="actorSuggestions" class="suggestion-box"></ul>
-            </div>
+                <!-- Container for selected actors -->
+                <div id="selectedActors"></div>
         </div>
     </div>
 
 
-    
-    <!-- Filters (Initially Hidden) -->
-    <div id="filters">
-        <div class="row mb-3">
-            
-            <!-- Genre Checkboxes -->
-            <div class="col-md-4">
-                <label class="form-label">Genres:</label>
-                <div id="genreCheckboxes" class="genre-container"></div>
-            </div>
-
-            <!-- Release Date Range (Calendar Picker) -->
-            <div class="col-md-4">
-                <label class="form-label">Release Date From:</label>
-                <input type="date" id="releaseDateFrom" class="form-control" onchange="searchMovies()">
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Release Date To:</label>
-                <input type="date" id="releaseDateTo" class="form-control" onchange="searchMovies()">
-            </div>
-
-            <!-- Awards Filters -->
-            <div class="col-md-4">
-                <label class="form-label">Minimum Awards Won:</label>
-                <input type="number" id="minOscars" class="form-control" placeholder="Min Oscars" onchange="searchMovies()">
-                <input type="number" id="minGoldenGlobes" class="form-control mt-2" placeholder="Min Golden Globes" onchange="searchMovies()">
-                <input type="number" id="minBAFTAs" class="form-control mt-2" placeholder="Min BAFTAs" onchange="searchMovies()">
-            </div>
-
-            <!-- Runtime Filters -->
-            <div class="col-md-4">
-                <label class="form-label">Runtime (Min - Max):</label>
-                <input type="number" id="minRuntime" class="form-control" placeholder="Min (mins)" onchange="searchMovies()">
-                <input type="number" id="maxRuntime" class="form-control mt-2" placeholder="Max (mins)" onchange="searchMovies()">
-            </div>
-
-            <!-- Language Dropdown -->
-            <div class="col-md-4">
-                <label class="form-label">Language:</label>
-                <select id="languageSelect" class="form-control" onchange="searchMovies()">
-                    <option value="">All Languages</option>
-                </select>
-            </div>
-
-            <!-- Director Input with Auto-Suggestions -->
-            <div class="col-md-4">
-                <label class="form-label">Director:</label>
-                <input type="text" id="directorSearch" class="form-control" placeholder="Search for a director..." oninput="fetchDirectors()">
-                <ul id="directorSuggestions" class="suggestion-box"></ul>
-            </div>
-
-            <!-- Actor Input with Auto-Suggestions -->
-            <div class="col-md-4">
-                <label class="form-label">Lead Actor:</label>
-                <input type="text" id="actorSearch" class="form-control" placeholder="Search for an actor..." oninput="fetchActors()">
-                <ul id="actorSuggestions" class="suggestion-box"></ul>
-            </div>
-        </div>
-    </div>
 
     <div id="results"></div>
+    <div id="pagination" class="d-flex justify-content-center mt-3"></div>
 
     <!-- 🎬 Festival Planner Section -->
     <h2 class="text-center mt-4" id="planner-title" style="display: none;">📅 Festival Movie Planner</h2>
@@ -460,6 +405,7 @@
         fetchLanguages();
         checkSessionStatus(); // ✅ Check if user is logged in
         searchMovies();
+  
 
         // ✅ Ensure Login Form Event Listener is attached
         const loginForm = document.getElementById("loginForm");
@@ -717,14 +663,122 @@
             languageSelect.appendChild(option);
         });
     }
+// Global arrays to store selected directors and actors
+    let selectedDirectors = [];
+    let selectedActors = [];
 
-    async function searchMovies() {
+    async function directorAutocomplete() {
+        const input = document.getElementById("directorInput");
+        const query = input.value.trim();
+        const suggestionsList = document.getElementById("directorSuggestions");
+        suggestionsList.innerHTML = ""; // Clear previous suggestions
+
+        // Only fetch suggestions if at least 2 characters are entered
+        if(query.length < 1) return;
+        
+        try {
+            const response = await fetch(`/search_directors?q=${encodeURIComponent(query)}`);
+            const directors = await response.json();
+            // Limit suggestions to the top 10
+            directors.slice(0, 10).forEach(director => {
+                const li = document.createElement("li");
+                li.textContent = director;
+                li.onclick = function() {
+                    // Add director if not already selected
+                    if(!selectedDirectors.includes(director)) {
+                        selectedDirectors.push(director);
+                        updateSelectedDirectors();
+                        searchMovies(); // Re-run search with updated filter
+                    }
+                    input.value = ""; // Clear input after selection
+                    suggestionsList.innerHTML = "";
+                };
+                suggestionsList.appendChild(li);
+            });
+        } catch (error) {
+            console.error("❌ Error fetching director suggestions:", error);
+        }
+    }
+
+    function updateSelectedDirectors() {
+        const container = document.getElementById("selectedDirectors");
+        container.innerHTML = ""; // Clear existing badges
+        selectedDirectors.forEach((director, index) => {
+            const badge = document.createElement("span");
+            badge.classList.add("badge", "bg-primary", "me-1");
+            badge.textContent = director;
+            // Add a remove button for each badge
+            const removeBtn = document.createElement("button");
+            removeBtn.classList.add("btn", "btn-sm", "btn-light", "ms-1");
+            removeBtn.textContent = "x";
+            removeBtn.onclick = () => {
+                selectedDirectors.splice(index, 1);
+                updateSelectedDirectors();
+                searchMovies();
+            };
+            badge.appendChild(removeBtn);
+            container.appendChild(badge);
+        });
+    }
+
+    async function actorAutocomplete() {
+        const input = document.getElementById("actorInput");
+        const query = input.value.trim();
+        const suggestionsList = document.getElementById("actorSuggestions");
+        suggestionsList.innerHTML = ""; // Clear previous suggestions
+
+        if(query.length < 1) return;
+        
+        try {
+            const response = await fetch(`/search_actors?q=${encodeURIComponent(query)}`);
+            const actors = await response.json();
+            actors.slice(0, 10).forEach(actor => {
+                const li = document.createElement("li");
+                li.textContent = actor;
+                li.onclick = function() {
+                    if(!selectedActors.includes(actor)) {
+                        selectedActors.push(actor);
+                        updateSelectedActors();
+                        searchMovies(); // Re-run search with updated filter
+                    }
+                    input.value = "";
+                    suggestionsList.innerHTML = "";
+                };
+                suggestionsList.appendChild(li);
+            });
+        } catch (error) {
+            console.error("❌ Error fetching actor suggestions:", error);
+        }
+    }
+
+    function updateSelectedActors() {
+        const container = document.getElementById("selectedActors");
+        container.innerHTML = "";
+        selectedActors.forEach((actor, index) => {
+            const badge = document.createElement("span");
+            badge.classList.add("badge", "bg-success", "me-1");
+            badge.textContent = actor;
+            const removeBtn = document.createElement("button");
+            removeBtn.classList.add("btn", "btn-sm", "btn-light", "ms-1");
+            removeBtn.textContent = "x";
+            removeBtn.onclick = () => {
+                selectedActors.splice(index, 1);
+                updateSelectedActors();
+                searchMovies();
+            };
+            badge.appendChild(removeBtn);
+            container.appendChild(badge);
+        });
+    }
+
+
+    async function searchMovies(page=1) {
     updatePlannerUI();  // ✅ Ensure UI updates immediately
+    const directorsFilter = selectedDirectors; 
+    const actorsFilter = selectedActors;
 
     const query = document.getElementById("searchInput").value.trim();
     const selectedGenres = [...document.querySelectorAll(".genre-checkbox:checked")].map(cb => cb.value);
-    const director = document.getElementById("directorSearch").value.trim();
-    const actor = document.getElementById("actorSearch").value.trim();
     const releaseDateFrom = document.getElementById("releaseDateFrom").value;
     const releaseDateTo = document.getElementById("releaseDateTo").value;
     const minOscars = document.getElementById("minOscars").value;
@@ -732,13 +786,12 @@
     const minBAFTAs = document.getElementById("minBAFTAs").value;
     const minRuntime = document.getElementById("minRuntime").value;
     const maxRuntime = document.getElementById("maxRuntime").value;
-    const language = document.getElementById("languageSelect").value;
-
+    const selectedLanguages = [...document.getElementById("languageSelect").selectedOptions].map(opt => opt.value);
     const url = new URL("/search", window.location.origin);
     if (query) url.searchParams.append("q", query);
+    if (directorsFilter.length) url.searchParams.append("director", directorsFilter.join(","));
+    if (actorsFilter.length) url.searchParams.append("actor", actorsFilter.join(","));
     if (selectedGenres.length) url.searchParams.append("genres", selectedGenres.join(","));
-    if (director) url.searchParams.append("director", director);
-    if (actor) url.searchParams.append("actor", actor);
     if (releaseDateFrom) url.searchParams.append("releaseDateFrom", releaseDateFrom);
     if (releaseDateTo) url.searchParams.append("releaseDateTo", releaseDateTo);
     if (minOscars) url.searchParams.append("minOscars", minOscars);
@@ -746,21 +799,28 @@
     if (minBAFTAs) url.searchParams.append("minBAFTAs", minBAFTAs);
     if (minRuntime) url.searchParams.append("min_runtime", minRuntime);
     if (maxRuntime) url.searchParams.append("max_runtime", maxRuntime);
-    if (language) url.searchParams.append("language", language);
-
+    if (selectedLanguages.length && !selectedLanguages.includes("")) {
+        url.searchParams.append("language", selectedLanguages.join(","));
+    }
+    url.searchParams.append("page", page);
+    url.searchParams.append("page_size", 20);
     console.log("Fetching movies from:", url.toString()); // Debug API request
 
     try {
         const response = await fetch(url);
-        const movies = await response.json();
+        const data = await response.json();
+        const movies = data.movies;
+
 
         console.log("API Response:", movies);  // Debug received movies
 
         const resultsContainer = document.getElementById("results");
         resultsContainer.innerHTML = ""; // Clear previous results
+    
 
-        if (movies.length === 0) {
+        if (!movies||movies.length === 0) {
             resultsContainer.innerHTML = "<p>No movies found.</p>";
+            document.getElementById("pagination").innerHTML = "";
             updatePlannerUI(); // ✅ Ensure UI updates immediately
             return;
         }
@@ -772,8 +832,7 @@
                     <select class="form-control mt-2 list-selector" style="display: none;"></select>
                 `;
             }
-            return `
-                <div class="movie-card">
+            return `<div class="movie-card">
                     <img src="${movie.poster_url}" alt="${movie.title} Poster">
                     <h5>${movie.title}</h5>
                     <p><strong>Genre:</strong> ${movie.genre}</p>
@@ -786,11 +845,161 @@
                 </div>
             `;
         }).join("");
+        renderPagination(data.page, data.page_size, data.total);
     } catch (error) {
         console.error("Error fetching movies:", error);
     }
 }
     const festivalLists = {}; // Stores lists with their details and movies grouped by genre
+    function renderPagination(currentPage, pageSize, totalResults) {
+    const paginationContainer = document.getElementById("pagination");
+    paginationContainer.innerHTML = ""; // Clear existing buttons
+
+    const totalPages = Math.ceil(totalResults / pageSize);
+    if (totalPages <= 1) return; // No pagination needed
+
+    // Create a "<<" button for first page
+    const firstBtn = document.createElement("button");
+    firstBtn.textContent = "<<";
+    firstBtn.className = "btn btn-secondary m-1";
+    firstBtn.disabled = currentPage === 1;
+    if (currentPage !== 1) {
+        firstBtn.onclick = () => searchMovies(1);
+    }
+    paginationContainer.appendChild(firstBtn);
+
+    // Create a "<" button for previous page
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = "<";
+    prevBtn.className = "btn btn-secondary m-1";
+    prevBtn.disabled = currentPage === 1;
+    if (currentPage !== 1) {
+        prevBtn.onclick = () => searchMovies(currentPage - 1);
+    }
+    paginationContainer.appendChild(prevBtn);
+
+    // Determine the range of numbered page buttons to display
+    if (totalPages <= 6) {
+        // If there are 6 or fewer pages, display them all.
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement("button");
+            btn.textContent = i;
+            btn.className = "btn btn-secondary m-1";
+            if (i === currentPage) {
+                btn.disabled = true;
+            } else {
+                btn.onclick = () => searchMovies(i);
+            }
+            paginationContainer.appendChild(btn);
+        }
+    } else {
+        // More than 6 pages: we display a truncated list.
+        if (currentPage <= 3) {
+            // Display pages 1-5, ellipsis, last page.
+            for (let i = 1; i <= 5; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.className = "m-1";
+            paginationContainer.appendChild(ellipsis);
+
+            const lastBtnNumber = document.createElement("button");
+            lastBtnNumber.textContent = totalPages;
+            lastBtnNumber.className = "btn btn-secondary m-1";
+            lastBtnNumber.onclick = () => searchMovies(totalPages);
+            paginationContainer.appendChild(lastBtnNumber);
+        } else if (currentPage >= totalPages - 2) {
+            // Display first page, ellipsis, then last 5 pages.
+            const firstBtnNumber = document.createElement("button");
+            firstBtnNumber.textContent = 1;
+            firstBtnNumber.className = "btn btn-secondary m-1";
+            firstBtnNumber.onclick = () => searchMovies(1);
+            paginationContainer.appendChild(firstBtnNumber);
+
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.className = "m-1";
+            paginationContainer.appendChild(ellipsis);
+
+            for (let i = totalPages - 4; i <= totalPages; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+        } else {
+            // Display first page, ellipsis, currentPage-1, currentPage, currentPage+1, ellipsis, last page.
+            const firstBtnNumber = document.createElement("button");
+            firstBtnNumber.textContent = 1;
+            firstBtnNumber.className = "btn btn-secondary m-1";
+            firstBtnNumber.onclick = () => searchMovies(1);
+            paginationContainer.appendChild(firstBtnNumber);
+
+            const ellipsis1 = document.createElement("span");
+            ellipsis1.textContent = "...";
+            ellipsis1.className = "m-1";
+            paginationContainer.appendChild(ellipsis1);
+
+            for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+
+            const ellipsis2 = document.createElement("span");
+            ellipsis2.textContent = "...";
+            ellipsis2.className = "m-1";
+            paginationContainer.appendChild(ellipsis2);
+
+            const lastBtnNumber = document.createElement("button");
+            lastBtnNumber.textContent = totalPages;
+            lastBtnNumber.className = "btn btn-secondary m-1";
+            lastBtnNumber.onclick = () => searchMovies(totalPages);
+            paginationContainer.appendChild(lastBtnNumber);
+        }
+    }
+
+    // Create a ">" button for next page.
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = ">";
+    nextBtn.className = "btn btn-secondary m-1";
+    nextBtn.disabled = currentPage === totalPages;
+    if (currentPage !== totalPages) {
+        nextBtn.onclick = () => searchMovies(currentPage + 1);
+    }
+    paginationContainer.appendChild(nextBtn);
+
+    // Create a ">>" button to jump to the last page.
+    const lastBtn = document.createElement("button");
+    lastBtn.textContent = ">>";
+    lastBtn.className = "btn btn-secondary m-1";
+    lastBtn.disabled = currentPage === totalPages;
+    if (currentPage !== totalPages) {
+        lastBtn.onclick = () => searchMovies(totalPages);
+    }
+    paginationContainer.appendChild(lastBtn);
+}
+
 
     function showNewListForm() {
         document.getElementById("newListForm").style.display = 'block';

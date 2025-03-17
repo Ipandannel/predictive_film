@@ -30,7 +30,7 @@ def index():
 
 @app.route("/search", methods=["GET"])
 def search_movies():
-    """Search for movies based on filters."""
+    """Search for movies based on filters with pagination."""
     query = request.args.get("q", "").strip()
     genres = request.args.get("genres", "").strip().split(",") if request.args.get("genres") else []
     min_rating = request.args.get("min_rating", "").strip()
@@ -45,11 +45,131 @@ def search_movies():
     min_oscars = request.args.get("minOscars", "").strip()
     min_golden_globes = request.args.get("minGoldenGlobes", "").strip()
     min_baftas = request.args.get("minBAFTAs", "").strip()
+    
+    # Pagination parameters
+    try:
+        page = int(request.args.get("page", 1))
+    except ValueError:
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size", 20))
+    except ValueError:
+        page_size = 20
+    offset = (page - 1) * page_size
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    sql_query = """
+    # Build a common base query with all filters
+    base_query = """
+        FROM movies
+        LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
+        LEFT JOIN genres ON movie_genres.genreId = genres.id
+        LEFT JOIN movie_directors ON movies.movieId = movie_directors.movieId
+        LEFT JOIN directors ON movie_directors.director_id = directors.id
+        LEFT JOIN movie_actors ON movies.movieId = movie_actors.movieId
+        LEFT JOIN actors ON movie_actors.actor_id = actors.id
+        LEFT JOIN ratings ON movies.movieId = ratings.movieId
+        LEFT JOIN awards ON movies.movieId = awards.movieId
+        LEFT JOIN languages ON movies.language_id = languages.id
+        WHERE 1=1
+    """
+    query_params = []
+
+    # Filter by title
+    if query:
+        base_query += " AND LOWER(movies.title) LIKE LOWER(%s)"
+        query_params.append(f"%{query}%")
+
+    # Filter by genres
+    if genres:
+        base_query += """
+            AND movies.movieId IN (
+                SELECT mg.movieId FROM movie_genres mg 
+                JOIN genres g ON mg.genreId = g.id 
+                WHERE g.genre_name IN ({})
+                GROUP BY mg.movieId
+                HAVING COUNT(DISTINCT g.genre_name) = %s
+            )
+        """.format(", ".join(["%s"] * len(genres)))
+        query_params.extend(genres)
+        query_params.append(len(genres))
+
+    # Filter by director
+    if director:
+        base_query += """
+            AND movies.movieId IN (
+                SELECT md.movieId FROM movie_directors md 
+                JOIN directors d ON md.director_id = d.id 
+                WHERE d.director_name LIKE %s
+            )
+        """
+        query_params.append(f"%{director}%")
+
+    # Filter by actor
+    if actor:
+        base_query += """
+            AND movies.movieId IN (
+                SELECT ma.movieId FROM movie_actors ma 
+                JOIN actors a ON ma.actor_id = a.id 
+                WHERE a.actor_name LIKE %s
+            )
+        """
+        query_params.append(f"%{actor}%")
+
+    # Filter by rating
+    if min_rating:
+        base_query += " AND movies.avg_rating >= %s"
+        query_params.append(float(min_rating))
+    if max_rating:
+        base_query += " AND movies.avg_rating <= %s"
+        query_params.append(float(max_rating))
+
+    # Filter by release date
+    if release_date_from:
+        base_query += " AND movies.release_date >= %s"
+        query_params.append(release_date_from)
+    if release_date_to:
+        base_query += " AND movies.release_date <= %s"
+        query_params.append(release_date_to)
+
+    # Filter by runtime
+    if min_runtime:
+        base_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) >= %s"
+        query_params.append(int(min_runtime))
+    if max_runtime:
+        base_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) <= %s"
+        query_params.append(int(max_runtime))
+
+    if language:
+        languages_list = [l.strip() for l in language.split(",") if l.strip()]
+        if len(languages_list) == 1:
+            base_query += " AND languages.language_name = %s"
+            query_params.append(languages_list[0])
+        else:
+            placeholders = ", ".join(["%s"] * len(languages_list))
+            base_query += f" AND languages.language_name IN ({placeholders})"
+            query_params.extend(languages_list)
+
+    # Filter by awards
+    if min_oscars:
+        base_query += " AND awards.oscars_won >= %s"
+        query_params.append(int(min_oscars))
+    if min_golden_globes:
+        base_query += " AND awards.golden_globes_won >= %s"
+        query_params.append(int(min_golden_globes))
+    if min_baftas:
+        base_query += " AND awards.baftas_won >= %s"
+        query_params.append(int(min_baftas))
+
+    # --- Count Query: Get total matching movies ---
+    count_query = "SELECT COUNT(DISTINCT movies.movieId) AS total " + base_query
+    cursor.execute(count_query, tuple(query_params))
+    count_result = cursor.fetchone()
+    total = count_result["total"] if count_result and "total" in count_result else 0
+
+    # --- Main Query: Fetch movie data with pagination ---
+    main_query = """
         SELECT 
             movies.movieId, movies.title, 
             IFNULL(GROUP_CONCAT(DISTINCT genres.genre_name SEPARATOR ', '), 'Unknown') AS genre,
@@ -65,110 +185,25 @@ def search_movies():
             IFNULL(awards.oscars_won, 0) AS oscars,
             IFNULL(awards.golden_globes_won, 0) AS golden_globes,
             IFNULL(awards.baftas_won, 0) AS baftas
-        FROM movies
-        LEFT JOIN movie_genres ON movies.movieId = movie_genres.movieId
-        LEFT JOIN genres ON movie_genres.genreId = genres.id
-        LEFT JOIN movie_directors ON movies.movieId = movie_directors.movieId
-        LEFT JOIN directors ON movie_directors.director_id = directors.id
-        LEFT JOIN movie_actors ON movies.movieId = movie_actors.movieId
-        LEFT JOIN actors ON movie_actors.actor_id = actors.id
-        LEFT JOIN ratings ON movies.movieId = ratings.movieId
-        LEFT JOIN awards ON movies.movieId = awards.movieId
-        LEFT JOIN languages ON movies.language_id = languages.id  -- ✅ FIXED LANGUAGE JOIN
-        WHERE 1=1
-    """
-    query_params = []
-
-    # ✅ Search by title
-    if query:
-        sql_query += " AND LOWER(movies.title) LIKE LOWER(%s)"
-        query_params.append(f"%{query}%")
-
-    # ✅ Filter by genres (Ensures only movies with at least one selected genre appear)
-    if genres:
-        sql_query += """
-            AND movies.movieId IN (
-                SELECT mg.movieId FROM movie_genres mg 
-                JOIN genres g ON mg.genreId = g.id 
-                WHERE g.genre_name IN ({})
-                GROUP BY mg.movieId
-                HAVING COUNT(DISTINCT g.genre_name) = %s
-            )
-        """.format(", ".join(["%s"] * len(genres)))
-        query_params.extend(genres)
-        query_params.append(len(genres))  # Ensure all selected genres exist in the movie
-
-    # ✅ Filter by director
-    if director:
-        sql_query += """
-            AND movies.movieId IN (
-                SELECT md.movieId FROM movie_directors md 
-                JOIN directors d ON md.director_id = d.id 
-                WHERE d.director_name LIKE %s
-            )
-        """
-        query_params.append(f"%{director}%")
-
-    # ✅ Filter by actor
-    if actor:
-        sql_query += """
-            AND movies.movieId IN (
-                SELECT ma.movieId FROM movie_actors ma 
-                JOIN actors a ON ma.actor_id = a.id 
-                WHERE a.actor_name LIKE %s
-            )
-        """
-        query_params.append(f"%{actor}%")
-
-    # ✅ Filter by rating
-    if min_rating:
-        sql_query += " AND movies.avg_rating >= %s"
-        query_params.append(float(min_rating))
-    if max_rating:
-        sql_query += " AND movies.avg_rating <= %s"
-        query_params.append(float(max_rating))
-
-    # ✅ Filter by release date
-    if release_date_from:
-        sql_query += " AND movies.release_date >= %s"
-        query_params.append(release_date_from)
-    if release_date_to:
-        sql_query += " AND movies.release_date <= %s"
-        query_params.append(release_date_to)
-
-    # ✅ Filter by runtime
-    if min_runtime:
-        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) >= %s"
-        query_params.append(int(min_runtime))
-    if max_runtime:
-        sql_query += " AND CAST(SUBSTRING_INDEX(movies.runtime, ' ', 1) AS UNSIGNED) <= %s"
-        query_params.append(int(max_runtime))
-
-    # ✅ Filter by language
-    if language:
-        sql_query += " AND languages.language_name = %s"
-        query_params.append(language)
-
-    # ✅ Filter by awards
-    if min_oscars:
-        sql_query += " AND awards.oscars_won >= %s"
-        query_params.append(int(min_oscars))
-    if min_golden_globes:
-        sql_query += " AND awards.golden_globes_won >= %s"
-        query_params.append(int(min_golden_globes))
-    if min_baftas:
-        sql_query += " AND awards.baftas_won >= %s"
-        query_params.append(int(min_baftas))
-
-    sql_query += " GROUP BY movies.movieId LIMIT 20;"  # ✅ Removed COUNT filter to allow more results
-
-    cursor.execute(sql_query, tuple(query_params))
+    """ + base_query + " GROUP BY movies.movieId LIMIT %s OFFSET %s;"
+    
+    # Copy the filter parameters and add pagination parameters
+    query_params_main = query_params.copy()
+    query_params_main.extend([page_size, offset])
+    
+    cursor.execute(main_query, tuple(query_params_main))
     movies = cursor.fetchall()
 
     cursor.close()
     conn.close()
     
-    return jsonify(movies)
+    return jsonify({
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "movies": movies
+    })
+
 
 @app.route("/genres", methods=["GET"])
 def get_genres():
