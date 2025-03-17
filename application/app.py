@@ -9,9 +9,44 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 import base64
-
+import sys
+import time
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+progress = {"low": 0, "high": 0}
+
+def update_progress(key, start, end, duration):
+    """
+    Simulate progress update by increasing progress[key] from start to end over 'duration' seconds.
+    """
+    steps = end - start
+    if steps <= 0:
+        return
+    delay = duration / steps
+    for p in range(start + 1, end + 1):
+        progress[key] = p
+        time.sleep(delay)
+def print_progress_bar(prefix, key):
+    """
+    Continuously print a progress bar in the terminal for the given key.
+    The progress bar updates based on the value of progress[key] (0 to 100).
+    """
+    bar_length = 50  # Length of the progress bar in characters
+    last_percent = -1
+    while progress[key] < 100:
+        percent = progress[key]
+        if percent != last_percent:
+            filled_length = int(round(bar_length * percent / 100))
+            bar = '#' * filled_length + '-' * (bar_length - filled_length)
+            sys.stdout.write(f'\r{prefix}: [{bar}] {percent}%')
+            sys.stdout.flush()
+            last_percent = percent
+        time.sleep(0.1)
+    # Print final state at 100%
+    filled_length = bar_length
+    bar = '#' * filled_length
+    sys.stdout.write(f'\r{prefix}: [{bar}] 100%\n')
+    sys.stdout.flush()
 
 def get_db_connection():
     try:
@@ -27,20 +62,43 @@ def get_db_connection():
         print(f"Database connection failed: {err}")
         return None
 
-
+def simulate_progress(prefix, duration=3):
+    """
+    Simulates a continuous progress bar in the terminal.
+    prefix: A string label (e.g., "Low Rated Summary")
+    duration: Total time (in seconds) over which to simulate progress.
+    """
+    bar_length = 50  # characters long progress bar
+    for i in range(101):  # from 0% to 100%
+        filled_length = int(round(bar_length * i / 100))
+        bar = '#' * filled_length + '-' * (bar_length - filled_length)
+        sys.stdout.write(f'\r{prefix}: [{bar}] {i}%')
+        sys.stdout.flush()
+        time.sleep(duration / 101)  # adjust duration to spread over the given time
+    sys.stdout.write('\n')
 
 def init_low_rated_summary():
-   
+    global progress
+    progress["low"] = 0  # Reset progress for low-rated summary
     conn = get_db_connection()
     if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
+        print("Low Rated Summary: Failed to connect to the database")
+        return
 
     cursor = conn.cursor()
 
-    print("initiate the temp table")
-    create_and_populate_low_rated_temp_table(conn, "WHERE r.rating < 3.0")
-    print("initiate the result table")
+    # Start a thread to continuously print the progress bar
+    low_progress_thread = threading.Thread(target=print_progress_bar, args=("Low Rated Summary", "low"), daemon=True)
+    low_progress_thread.start()
 
+    print("\nStarting low rated summary initialization...")
+    update_progress("low", 0, 30, duration=2)  # Simulate progress 0% to 30% over 2 seconds
+
+    print("\nCreating and populating temporary table for low ratings...")
+    create_and_populate_low_rated_temp_table(conn, "WHERE r.rating < 3.0")
+    update_progress("low", 30, 50, duration=1)  # Simulate progress 30% to 50%
+
+    print("\nCreating result table for low ratings...")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS low_rated_summary (
             userId INT,
@@ -52,38 +110,54 @@ def init_low_rated_summary():
         )
     """)
     cursor.execute("TRUNCATE TABLE low_rated_summary")
-    print("calculate the result data and result it into the result table")
+    update_progress("low", 50, 80, duration=2)  # Simulate progress 50% to 80%
 
+    print("\nCalculating and inserting summary data for low ratings...")
     cursor.execute("""
             INSERT INTO low_rated_summary (userId, low_rated_genre, other_genre, avg_other_rating, rating_count)
-            SELECT lr.userId, lr.genre AS low_rated_genre, g.genre AS other_genre, 
+            SELECT lr.userId, lr.genre AS low_rated_genre, g.genre_name AS other_genre, 
                    AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
             FROM low_rated lr
-            JOIN ratings r ON lr.userId = r.userId
+            JOIN user_ratings r ON lr.userId = r.userId
             JOIN movies m ON r.movieId = m.movieId
             JOIN movie_genres mg ON m.movieId = mg.movieId
             JOIN genres g ON mg.genreId = g.id
             WHERE r.movieId != lr.movieId               
-            GROUP BY lr.userId, lr.genre, g.genre
+            GROUP BY lr.userId, lr.genre, g.genre_name
             HAVING COUNT(r.rating) > 5
     """)
-    print(f"calculation finished:{cursor.rowcount}")
+    update_progress("low", 80, 100, duration=1)  # Simulate progress 80% to 100%
+
+    print(f"\nLow Rated Summary: {cursor.rowcount} rows inserted.")
     conn.commit()
+    low_progress_thread.join()  # Wait for the progress bar thread to finish
+    print("Low Rated Summary initialization complete.")
     cursor.close()
     conn.close()
 
+
 def init_high_rated_summary():
-    
+    global progress
+    progress["high"] = 0  # Reset progress for high-rated summary
     conn = get_db_connection()
     if conn is None:
-        return jsonify({"error": "Failed to connect to the database"}), 500
+        print("High Rated Summary: Failed to connect to the database")
+        return
 
     cursor = conn.cursor()
 
-    print("initiate the temp table")
-    create_and_populate_high_rated_temp_table(conn, "WHERE r.rating > 4.0")
-    print("initiate the result table")
+    # Start a thread to continuously print the progress bar for high ratings
+    high_progress_thread = threading.Thread(target=print_progress_bar, args=("High Rated Summary", "high"), daemon=True)
+    high_progress_thread.start()
 
+    print("\nStarting high rated summary initialization...")
+    update_progress("high", 0, 30, duration=2)  # Simulate progress 0% to 30%
+
+    print("\nCreating and populating temporary table for high ratings...")
+    create_and_populate_high_rated_temp_table(conn, "WHERE r.rating > 4.0")
+    update_progress("high", 30, 50, duration=1)  # Simulate progress 30% to 50%
+
+    print("\nCreating result table for high ratings...")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS high_rated_summary (
             userId INT,
@@ -95,26 +169,30 @@ def init_high_rated_summary():
         )
     """)
     cursor.execute("TRUNCATE TABLE high_rated_summary")
-    print("calculate the result data and insert it into the result table")
+    update_progress("high", 50, 80, duration=2)  # Simulate progress 50% to 80%
 
+    print("\nCalculating and inserting summary data for high ratings...")
     cursor.execute("""
             INSERT INTO high_rated_summary (userId, high_rated_genre, other_genre, avg_other_rating, rating_count)
-            SELECT lr.userId, lr.genre AS high_rated_genre, g.genre AS other_genre, 
+            SELECT lr.userId, lr.genre AS high_rated_genre, g.genre_name AS other_genre, 
                    AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
             FROM high_rated lr
-            JOIN ratings r ON lr.userId = r.userId
+            JOIN user_ratings r ON lr.userId = r.userId
             JOIN movies m ON r.movieId = m.movieId
             JOIN movie_genres mg ON m.movieId = mg.movieId
             JOIN genres g ON mg.genreId = g.id
             WHERE r.movieId != lr.movieId
-            GROUP BY lr.userId, lr.genre, g.genre
+            GROUP BY lr.userId, lr.genre, g.genre_name
             HAVING COUNT(r.rating) > 5
     """)
-    print(f"calculation finished:{cursor.rowcount}")
+    update_progress("high", 80, 100, duration=1)  # Simulate progress 80% to 100%
+
+    print(f"\nHigh Rated Summary: {cursor.rowcount} rows inserted.")
     conn.commit()
+    high_progress_thread.join()  # Wait for the progress bar thread to finish
+    print("High Rated Summary initialization complete.")
     cursor.close()
     conn.close()
-
 
 
 
@@ -137,8 +215,8 @@ def create_and_populate_low_rated_temp_table(conn, condition_query, params=None)
 
         cursor.execute(f"""
             INSERT IGNORE INTO low_rated (userId, movieId, rating, title, genre)
-            SELECT r.userId, r.movieId, r.rating, m.title, g.genre
-            FROM ratings r
+            SELECT r.userId, r.movieId, r.rating, m.title, g.genre_name
+            FROM user_ratings r
             JOIN movies m ON r.movieId = m.movieId
             JOIN movie_genres mg ON m.movieId = mg.movieId
             JOIN genres g ON mg.genreId = g.id
@@ -173,8 +251,8 @@ def create_and_populate_high_rated_temp_table(conn, condition_query, params=None
 
         cursor.execute(f"""
             INSERT IGNORE INTO high_rated (userId, movieId, rating, title, genre)
-            SELECT r.userId, r.movieId, r.rating, m.title, g.genre
-            FROM ratings r
+            SELECT r.userId, r.movieId, r.rating, m.title, g.genre_name
+            FROM user_ratings r
             JOIN movies m ON r.movieId = m.movieId
             JOIN movie_genres mg ON m.movieId = mg.movieId
             JOIN genres g ON mg.genreId = g.id
@@ -207,7 +285,7 @@ def search_movies():
 
     sql_query = """
         SELECT m.movieId, m.title, 
-               IFNULL(GROUP_CONCAT(DISTINCT g.genre SEPARATOR ', '), 'Unknown') AS genre,
+               IFNULL(GROUP_CONCAT(DISTINCT g.genre_name SEPARATOR ', '), 'Unknown') AS genre,
                IFNULL(m.avg_rating, 0) AS avg_rating
         FROM movies m
         LEFT JOIN movie_genres mg ON m.movieId = mg.movieId
@@ -221,7 +299,7 @@ def search_movies():
         query_params.append(f"%{query}%")
 
     if genre:
-        sql_query += " AND g.genre = %s"
+        sql_query += " AND g.genre_name = %s"
         query_params.append(genre)
 
     if min_rating:
@@ -259,8 +337,8 @@ def get_genres():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT DISTINCT genre FROM genres ORDER BY genre;")
-    genres = [row["genre"] for row in cursor.fetchall()]
+    cursor.execute("SELECT DISTINCT genre_name FROM genres ORDER BY genre_name;")
+    genres = [row["genre_name"] for row in cursor.fetchall()]
 
     cursor.close()
     conn.close()
@@ -289,12 +367,13 @@ def user_genre_rating_boxplot():
         cursor = conn.cursor(dictionary=True)
 
         cursor.execute("""
-            SELECT r.userId, g.genre, r.rating
-            FROM ratings r
+            SELECT r.userId, g.genre_name AS genre, r.rating
+            FROM user_ratings r
             JOIN movies m ON r.movieId = m.movieId
             JOIN movie_genres mg ON m.movieId = mg.movieId
             JOIN genres g ON mg.genreId = g.id
             WHERE r.userId = %s
+
         """, (user_id,))
         data = cursor.fetchall()
 
@@ -470,7 +549,7 @@ def record_genre():
 
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM genres WHERE genre = %s", (genre,))
+        cursor.execute("SELECT id FROM genres WHERE genre_name = %s", (genre,))
         genre_exists = cursor.fetchone()
 
         if not genre_exists:
@@ -511,7 +590,7 @@ def predict_rating():
         
         genre_ids = []
         for genre in genres:
-            cursor.execute("SELECT id FROM genres WHERE genre = %s", (genre,))
+            cursor.execute("SELECT id FROM genres WHERE genre_name = %s", (genre,))
             result = cursor.fetchone()
             if result:
                 genre_ids.append(result[0])
@@ -542,7 +621,7 @@ def predict_rating():
         movie_placeholders = ",".join(["%s"] * len(matching_movies))
         rating_query = f"""
         SELECT AVG(r.rating)
-        FROM ratings r
+        FROM user_ratings r
         WHERE r.movieId IN ({movie_placeholders})
         """
         cursor.execute(rating_query, matching_movies)
@@ -560,7 +639,7 @@ def predict_rating():
         
         for genre in genres:
             cursor.execute(
-                "INSERT INTO movie_genres (movieId, genreId) SELECT %s, id FROM genres WHERE genre = %s",
+                "INSERT INTO movie_genres (movieId, genreId) SELECT %s, id FROM genres WHERE genre_name = %s",
                 (movie_id, genre)
             )
 
@@ -585,13 +664,20 @@ def genre_analysis():
 @app.route("/personality-analysis")
 def personality_analysis():
     return render_template("personality_traits.html")
+def print_progress(prefix, percent):
+    bar_length = 50  # Length of the progress bar in characters
+    filled_length = int(round(bar_length * percent / 100))
+    bar = '#' * filled_length + '-' * (bar_length - filled_length)
+    # '\r' returns the cursor to the beginning of the line.
+    print(f'\r{prefix}: [{bar}] {percent}% Complete', end='', flush=True)
 
 def background_low_init():
-    print("Initializing summary...")
+    print("Initializing low summary...")
     init_low_rated_summary()
     print("Initialization completed for low rated summary.")
 
-def background_high_init():    
+def background_high_init():  
+    print("Initializing high summary...")  
     init_high_rated_summary()
     print("Initialization completed for high rated summary.")
 
