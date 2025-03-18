@@ -3,23 +3,236 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Search</title>
+    <title>Movie Search Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
-        .movie-card {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            margin: 10px 0;
-            background: #f9f9f9;
+        body {
+            background-color: #1E1E1E;
+            color:  #EAEAEA;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 20px;
         }
-        .movie-card img {
-            width: 80px;
-            height: 120px;
-            margin-right: 15px;
+        .navbar {
+            background-color: #333;
+            padding: 10px;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-right: 20px;
+            font-size: 18px;
+            padding: 8px;
+        }
+        .navbar a:hover {
+            background-color: #FFD700;
+            color: black;
             border-radius: 5px;
+        }
+        .search-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .search-container input {
+            width: 50%; /* Adjust the width */
+        }
+
+        /* Header */
+        h1 {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 20px;
+        }
+
+        /* Search & Filters */
+        .search-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        input, select {
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #EAEAEA;
+            padding: 8px;
+        }
+
+        /* Toggle Filters Button */
+        .btn-toggle {
+            background: #FFD700;
+            color: #333;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Filters Section (Hidden by Default) */
+        #filters {
+            display: none;
+            background: #2C2C2C;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        /* Festival Planner Sidebar */
+        .sidebar {
+            position: fixed;
+            left: -300px; /* Initially hidden */
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background-color: #2C2C2C;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: 2px 0px 10px rgba(255, 255, 255, 0.1);
+            transition: left 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        /* When active, move sidebar into view */
+        .sidebar.active {
+            left: 0;
+        }
+
+        .sidebar h4 {
+            color: #FFD700;
+            text-align: center;
+        }
+
+        /* Genre Checkboxes */
+        .genre-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .genre-checkbox {
+            margin-right: 5px;
+        }
+
+        /* Suggestion Boxes */
+        .suggestion-box {
+            list-style-type: none;
+            background: #444;
+            padding: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
+
+        .suggestion-box li {
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .suggestion-box li:hover {
+            background: #FFD700;
+            color: black;
+        }
+
+        /* Movie Results */
+        #results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* Movie Cards */
+        .movie-card {
+            background: #2C2C2C;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0px 5px 10px rgba(255, 255, 255, 0.1);
+            text-align: center;
+            padding: 15px;
+            transition: transform 0.2s ease-in-out;
+            color: white;
+        }
+
+        .movie-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0px 8px 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .movie-card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        #festival-planner {
+            display: none; /* Hidden by default */
+            background: #2C2C2C;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .genre-section {
+            background: #333;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .genre-section h4 {
+            color: #FFD700;
+        }
+
+        .genre-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .genre-section li {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: #444;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
         }
         #userBoxplot img {
             max-width: 100%;
@@ -28,31 +241,160 @@
     </style>
 </head>
 <body class="container mt-4">
-    <h1 class="text-center">🎬 Movie Search</h1>
 
-    <!-- Search Input -->
-    <div class="mb-3">
-        <input type="text" id="searchInput" class="form-control" placeholder="Search for a movie..." oninput="searchMovies()">
-    </div>
-
-    <!-- Filters for Genre and Rating -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label for="genreSelect" class="form-label">Genre:</label>
-            <select id="genreSelect" class="form-control" onchange="searchMovies()">
-                <option value="">All Genres</option>
-            </select>
+    <div class="navbar d-flex justify-content-between">
+        <div>
+            <a href="#" onclick="showSearch()">🏠 Home</a>
+            <a href="#" onclick="togglePlanner()" id="plannerButton">
+                📅 Festival Planner (<span id="plannerCount">0</span>)
+            </a>
         </div>
-        <div class="col-md-4">
-            <label for="minRating" class="form-label">Min Rating:</label>
-            <input type="number" id="minRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
-        </div>
-        <div class="col-md-4">
-            <label for="maxRating" class="form-label">Max Rating:</label>
-            <input type="number" id="maxRating" class="form-control" step="0.1" min="0" max="5" onchange="searchMovies()">
+        <div>
+            <!-- Login & Signup Buttons -->
+            <button class="btn btn-link btn-login" onclick="openLoginModal()">Login</button>
+            <button class="btn btn-link btn-signup" onclick="openSignupModal()">Sign Up</button>
+    
+            <!-- Welcome Message (Hidden by Default) -->
+            <span id="welcomeMessage" style="display: none; color: #FFD700; font-weight: bold;"></span>
+    
+            <!-- 🔹 Logout Button (Hidden Initially) -->
+            <button class="btn btn-link" id="logoutButton" style="display: none;" onclick="logoutUser()">Logout</button>
         </div>
     </div>
+    
+    <!-- Main Search -->
+    <h1 class="text-center">🎬 Film Dashboard</h1>
 
+    <!-- Search Bar & Filters Button in One Row -->
+    <div class="search-container d-flex justify-content-center align-items-center gap-3">
+        <input type="text" id="searchInput" class="form-control w-50" placeholder="Search for a movie and press filters button to start." oninput="searchMovies()">
+        <button class="btn btn-warning" onclick="toggleFilters()">🔍 Filters</button>
+    </div>
+    <div id="movieDetailsCard" class="modal" style="display: none;"></div>
+
+    <!-- Edit List Modal -->
+    <div id="editListModal" class="modal" style="display:none;">
+        <div class="modal-content">
+        <span class="close">&times;</span>
+        <form id="editListForm">
+            <label for="editListTitle">Edit Title:</label>
+            <input type="text" id="editListTitle" name="title" class="form-control">
+            <label for="editListNote">Edit Note:</label>
+            <textarea id="editListNote" name="note" class="form-control"></textarea>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+        </div>
+    </div>
+    
+    <!-- Filters Section (Initially Hidden) - Now Placed Directly Below Search Bar -->
+    <div id="filters" class="mt-3" style="display: none;">
+        <div class="row mb-3">
+            <!-- Genre Checkboxes -->
+            <div class="col-md-4">
+                <label class="form-label">Genres:</label>
+                <div id="genreCheckboxes" class="genre-container"></div>
+            </div>
+
+            <!-- Release Date Range (Calendar Picker) -->
+            <div class="col-md-4">
+                <label class="form-label">Release Date From:</label>
+                <input type="date" id="releaseDateFrom" class="form-control" onchange="searchMovies()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Release Date To:</label>
+                <input type="date" id="releaseDateTo" class="form-control" onchange="searchMovies()">
+            </div>
+
+            <!-- Awards Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Minimum Awards Won:</label>
+                <input type="number" id="minOscars" class="form-control" placeholder="Min Oscars" onchange="searchMovies()">
+                <input type="number" id="minGoldenGlobes" class="form-control mt-2" placeholder="Min Golden Globes" onchange="searchMovies()">
+                <input type="number" id="minBAFTAs" class="form-control mt-2" placeholder="Min BAFTAs" onchange="searchMovies()">
+            </div>
+
+            <!-- Runtime Filters -->
+            <div class="col-md-4">
+                <label class="form-label">Runtime (Min - Max):</label>
+                <input type="number" id="minRuntime" class="form-control" placeholder="Min (mins)" onchange="searchMovies()">
+                <input type="number" id="maxRuntime" class="form-control mt-2" placeholder="Max (mins)" onchange="searchMovies()">
+            </div>
+
+            <!-- Language Dropdown -->
+            <div class="col-md-4">
+                <label class="form-label">Language:</label>
+                <select id="languageSelect" class="form-control" multiple onchange="searchMovies()">
+                    <option value="">All Languages</option>
+                </select>
+            </div>
+
+            <!-- Director Input with Auto-Suggestions -->
+            <div class="col-md-4">
+                <label class="form-label">Directors:</label>
+                <input type="text" id="directorInput" class="form-control" placeholder="Type to search for directors..." oninput="directorAutocomplete()">
+                <ul id="directorSuggestions" class="suggestion-box"></ul>
+                <!-- Container for selected directors -->
+                <div id="selectedDirectors"></div>
+            </div>
+        
+            <!-- Actor Autocomplete Input -->
+            <div class="col-md-4">
+                <label class="form-label">Lead Actors:</label>
+                <input type="text" id="actorInput" class="form-control" placeholder="Type to search for actors..." oninput="actorAutocomplete()">
+                <ul id="actorSuggestions" class="suggestion-box"></ul>
+                <!-- Container for selected actors -->
+                <div id="selectedActors"></div>
+        </div>
+    </div>
+
+
+
+    <div id="results"></div>
+    <div id="pagination" class="d-flex justify-content-center mt-3"></div>
+
+    <!-- 🎬 Festival Planner Section -->
+    <h2 class="text-center mt-4" id="planner-title" style="display: none;">📅 Festival Movie Planner</h2>
+ <!-- 🛒 Festival Planner Sidebar -->
+    <div id="festival-planner-sidebar" class="sidebar">
+        <h4 class="text-center">📅 Your Festival List</h4>
+        <button class="btn btn-danger btn-sm w-100 mb-2" onclick="togglePlanner()">❌ Close</button>
+        <button class="btn btn-primary mb-3" onclick="showNewListForm()">Create New List</button>
+        <div id="newListForm" style="display: none;">
+            <input type="text" id="newListTitle" placeholder="List Title" class="form-control mb-2">
+            <textarea id="newListNote" placeholder="List Note" class="form-control mb-2"></textarea>
+            <button class="btn btn-success" onclick="createNewList()">Add List</button>
+        </div>
+        <div id="festival-planner-content"></div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+        <span class="close" onclick="closeLoginModal()">&times;</span>
+        <h3>Login</h3>
+        <form id="loginForm">
+            <input type="text" id="loginUsername" name="username" placeholder="Username" required class="form-control mb-2">
+            <input type="password" id="loginPassword" name="password" placeholder="Password" required class="form-control mb-2">
+            <button type="submit" class="btn btn-primary">Login</button>
+        </form>
+        </div>
+    </div>
+    
+    
+    <!-- Signup Modal -->
+    <!-- Signup Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+        <span class="close" onclick="closeSignupModal()">&times;</span>
+        <h3>Sign Up</h3>
+        <form id="signupForm">
+            <input type="text" id="signupUsername" name="username" placeholder="Username" required class="form-control mb-2">
+            <input type="password" id="signupPassword" name="password" placeholder="Password" required class="form-control mb-2">
+            <button type="submit" class="btn btn-success">Sign Up</button>
+        </form>
+        </div>
+    </div>
+  
     <!-- Analysis Inputs -->
     <div class="mb-3">
         <div class="row">
@@ -148,62 +490,448 @@
     </div>
 
     <script>
-        // Fetch and Populate Genres Dropdown
-        document.addEventListener("DOMContentLoaded", fetchGenres);
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchGenres();
+        fetchLanguages();
+        checkSessionStatus(); // ✅ Check if user is logged in
+        searchMovies();
+        const loginForm = document.getElementById("loginForm");
+        if (loginForm) {
+            loginForm.addEventListener("submit", function (event) {
+                event.preventDefault();  // Prevent default form submission
+                console.log("🚀 Login form submitted!");  // Debugging message
+
+                const formData = new FormData(this);
+                console.log("📌 Login Form Data:", Object.fromEntries(formData.entries())); // Debug Form Data
+
+                fetch("/login", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Login response:", data);  // Debug Response
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        closeLoginModal();  // Close modal after login
+                        checkSessionStatus();  // ✅ Update UI to show "Welcome, username"
+                        searchMovies();
+                        fetchPlannerLists();
+                    }
+                })
+                .catch(error => console.error("❌ Error during login:", error));
+            });
+        } else {
+            console.error("❌ Login form not found in DOM!");
+        }
+    });
+    function checkSessionStatus() {
+    fetch("/check_session")
+        .then(response => response.json())
+        .then(data => {
+            // Store login state globally
+            window.isLoggedIn = data.logged_in;
+
+            const loginBtn = document.querySelector(".btn-login");
+            const signupBtn = document.querySelector(".btn-signup");
+            const logoutBtn = document.getElementById("logoutButton");
+            const welcomeText = document.getElementById("welcomeMessage");
+            const plannerButton = document.getElementById("plannerButton");
+
+            if (data.logged_in) {
+                if (loginBtn) loginBtn.style.display = "none";
+                if (signupBtn) signupBtn.style.display = "none";
+                if (logoutBtn) logoutBtn.style.display = "inline-block";
+                if (welcomeText) {
+                    welcomeText.innerHTML = `Welcome, <strong>${data.username}</strong>`;
+                    welcomeText.style.display = "inline-block";
+                }
+                // Show festival planner button
+                if (plannerButton) {
+                    plannerButton.style.display = "inline-block";
+                    fetchPlannerLists();
+                }
+            } else {
+                if (loginBtn) loginBtn.style.display = "inline-block";
+                if (signupBtn) signupBtn.style.display = "inline-block";
+                if (logoutBtn) logoutBtn.style.display = "none";
+                if (welcomeText) welcomeText.style.display = "none";
+                // Hide festival planner button
+                if (plannerButton) {
+                    plannerButton.style.display = "none";
+                }
+                document.getElementById("festival-planner-content").innerHTML = "<p>No lists available.</p>";
+            
+            }
+        })
+        .catch(error => console.error("❌ Error checking session:", error));
+}
+    async function fetchPlannerLists() {
+        try {
+            const response = await fetch("/planner/lists");
+            const lists = await response.json();
+
+            const plannerContent = document.getElementById("festival-planner-content");
+            plannerContent.innerHTML = "";
+
+            if (lists.length === 0) {
+                plannerContent.innerHTML = "<p>No planner lists available.</p>";
+                return;
+            }
+
+            for (let list of lists) {
+                let listHtml = `
+                    <div class="card bg-dark text-white mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>${list.title} - <i>${list.note}</i></span>
+                            <div>
+                                <button class="btn btn-warning btn-sm" onclick="fetchMoviesForList(${list.id})">📂 View</button>
+                                <button class="btn btn-danger btn-sm" onclick="deletePlannerList(${list.id})">🗑 Delete</button>
+                            </div>
+                        </div>
+                        <div class="card-body" id="movies-list-${list.id}">
+                            <p>Loading movies...</p>
+                        </div>
+                    </div>
+                `;
+                plannerContent.innerHTML += listHtml;
+                fetchMoviesForList(list.id);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching planner lists:", error);
+        }
+    }
+
+    async function fetchMoviesForList(listId) {
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies`);
+            const movies = await response.json();
+            const movieContainer = document.getElementById(`movies-list-${listId}`);
+
+            if (movies.length === 0) {
+                movieContainer.innerHTML = "<p>No movies added yet.</p>";
+                return;
+            }
+
+            movieContainer.innerHTML = movies.map(movie => `
+                <div class="movie-item">
+                    <img src="${movie.poster_url}" alt="${movie.title}" style="width: 50px;">
+                    <span>${movie.title} (${movie.genre})</span>
+                    <button class="btn btn-sm btn-danger" onclick="removeMovieFromList(${listId}, ${movie.movieId})">❌ Remove</button>
+                </div>
+            `).join("");
+        } catch (error) {
+            console.error("❌ Error fetching movies:", error);
+        }
+    }
+    async function createPlannerList() {
+        const title = document.getElementById("newListTitle").value.trim();
+        const note = document.getElementById("newListNote").value.trim();
+
+        if (!title) {
+            alert("Please enter a title for the list.");
+            return;
+        }
+
+        try {
+            const response = await fetch("/planner/lists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, note })
+            });
+            const data = await response.json();
+            alert(data.message);
+            fetchPlannerLists();  // Refresh planner lists
+        } catch (error) {
+            console.error("❌ Error creating planner list:", error);
+        }
+    }
+
+    async function deletePlannerList(listId) {
+        if (!confirm("Are you sure you want to delete this list?")) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}`, { method: "DELETE" });
+            const data = await response.json();
+            alert(data.message);
+            fetchPlannerLists();  // Refresh planner lists
+        } catch (error) {
+            console.error("❌ Error deleting planner list:", error);
+        }
+    }
+
+    async function addMovieToPlanner(movieId, title, genre) {
+        if (!window.isLoggedIn) {
+            alert("You must be logged in to add movies to a planner.");
+            return;
+        }
+
+        const listId = prompt("Enter the List ID to add this movie:");
+        if (!listId) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ list_id: listId, movieId, genre })
+            });
+            const data = await response.json();
+            alert(data.message);
+            fetchMoviesForList(listId);
+        } catch (error) {
+            console.error("❌ Error adding movie to planner:", error);
+        }
+    }
+
+    async function removeMovieFromList(listId, movieId) {
+        if (!confirm("Are you sure you want to remove this movie?")) return;
+
+        try {
+            const response = await fetch(`/planner/lists/${listId}/movies/${movieId}`, { method: "DELETE" });
+            const data = await response.json();
+            alert(data.message);
+            fetchMoviesForList(listId);
+        } catch (error) {
+            console.error("❌ Error removing movie:", error);
+        }
+    }
+
+    document.getElementById('logoutButton').addEventListener('click', function() {
+        fetch("/logout", { method: "POST" })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                checkSessionStatus();
+                document.getElementById("festival-planner-content").innerHTML = "<p>No lists available.</p>";
+            })
+            .catch(error => console.error("❌ Error during logout:", error));
+    });
+    function toggleFilters() {
+        let filtersDiv = document.getElementById("filters");
+        filtersDiv.style.display = (filtersDiv.style.display === "none" || filtersDiv.style.display === "") ? "block" : "none";
+    }
+
+    function togglePlanner() {
+        let plannerSidebar = document.getElementById("festival-planner-sidebar");
+        plannerSidebar.classList.toggle("active");
+    }
+
+
+    function showSearch() {
+    document.getElementById("festival-planner").style.display = "none";
+    document.getElementById("planner-title").style.display = "none";}
 
         async function fetchGenres() {
+            const response = await fetch("/genres");
+            const genres = await response.json();
+            const genreContainer = document.getElementById("genreCheckboxes");
+            genreContainer.innerHTML = genres.map(genre => `
+                <label>
+                    <input type="checkbox" value="${genre}" class="genre-checkbox" onchange="searchMovies()">
+                    ${genre}
+                </label>
+            `).join("");
+        }
+        async function fetchLanguages() {
+        const response = await fetch("/languages");
+        const languages = await response.json();
+        const languageSelect = document.getElementById("languageSelect");
+        languages.forEach(lang => {
+            const option = document.createElement("option");
+            option.value = lang;
+            option.textContent = lang;
+            languageSelect.appendChild(option);
+        });
+    }
+// Global arrays to store selected directors and actors
+    let selectedDirectors = [];
+    let selectedActors = [];
+
+        async function directorAutocomplete() {
+            const input = document.getElementById("directorInput");
+            const query = input.value.trim();
+            const suggestionsList = document.getElementById("directorSuggestions");
+            suggestionsList.innerHTML = ""; // Clear previous suggestions
+
+            // Only fetch suggestions if at least 2 characters are entered
+            if(query.length < 1) return;
+            
             try {
-                const response = await fetch("/genres");
-                if (!response.ok) throw new Error("Failed to load genres.");
-                const genres = await response.json();
-                const genreSelect = document.getElementById("genreSelect");
-                genres.forEach(genre => {
-                    const option = document.createElement("option");
-                    option.value = genre;
-                    option.textContent = genre;
-                    genreSelect.appendChild(option);
+                const response = await fetch(`/search_directors?q=${encodeURIComponent(query)}`);
+                const directors = await response.json();
+                // Limit suggestions to the top 10
+                directors.slice(0, 10).forEach(director => {
+                    const li = document.createElement("li");
+                    li.textContent = director;
+                    li.onclick = function() {
+                        // Add director if not already selected
+                        if(!selectedDirectors.includes(director)) {
+                            selectedDirectors.push(director);
+                            updateSelectedDirectors();
+                            searchMovies(); // Re-run search with updated filter
+                        }
+                        input.value = ""; // Clear input after selection
+                        suggestionsList.innerHTML = "";
+                    };
+                    suggestionsList.appendChild(li);
                 });
             } catch (error) {
-                console.error("Error loading genres:", error.message);
+                console.error("❌ Error fetching director suggestions:", error);
             }
+        }
+
+        function updateSelectedDirectors() {
+            const container = document.getElementById("selectedDirectors");
+            container.innerHTML = ""; // Clear existing badges
+            selectedDirectors.forEach((director, index) => {
+                const badge = document.createElement("span");
+                badge.classList.add("badge", "bg-primary", "me-1");
+                badge.textContent = director;
+                // Add a remove button for each badge
+                const removeBtn = document.createElement("button");
+                removeBtn.classList.add("btn", "btn-sm", "btn-light", "ms-1");
+                removeBtn.textContent = "x";
+                removeBtn.onclick = () => {
+                    selectedDirectors.splice(index, 1);
+                    updateSelectedDirectors();
+                    searchMovies();
+                };
+                badge.appendChild(removeBtn);
+                container.appendChild(badge);
+            });
+        }
+
+        async function actorAutocomplete() {
+            const input = document.getElementById("actorInput");
+            const query = input.value.trim();
+            const suggestionsList = document.getElementById("actorSuggestions");
+            suggestionsList.innerHTML = ""; // Clear previous suggestions
+
+            if(query.length < 1) return;
+            
+            try {
+                const response = await fetch(`/search_actors?q=${encodeURIComponent(query)}`);
+                const actors = await response.json();
+                actors.slice(0, 10).forEach(actor => {
+                    const li = document.createElement("li");
+                    li.textContent = actor;
+                    li.onclick = function() {
+                        if(!selectedActors.includes(actor)) {
+                            selectedActors.push(actor);
+                            updateSelectedActors();
+                            searchMovies(); // Re-run search with updated filter
+                        }
+                        input.value = "";
+                        suggestionsList.innerHTML = "";
+                    };
+                    suggestionsList.appendChild(li);
+                });
+            } catch (error) {
+                console.error("❌ Error fetching actor suggestions:", error);
+            }
+        }
+
+        function updateSelectedActors() {
+            const container = document.getElementById("selectedActors");
+            container.innerHTML = "";
+            selectedActors.forEach((actor, index) => {
+                const badge = document.createElement("span");
+                badge.classList.add("badge", "bg-success", "me-1");
+                badge.textContent = actor;
+                const removeBtn = document.createElement("button");
+                removeBtn.classList.add("btn", "btn-sm", "btn-light", "ms-1");
+                removeBtn.textContent = "x";
+                removeBtn.onclick = () => {
+                    selectedActors.splice(index, 1);
+                    updateSelectedActors();
+                    searchMovies();
+                };
+                badge.appendChild(removeBtn);
+                container.appendChild(badge);
+            });
         }
 
         // Fetch and Display Filtered Movie Results
-        async function searchMovies() {
-            const query = document.getElementById("searchInput").value.trim();
-            const genre = document.getElementById("genreSelect").value;
-            const minRating = document.getElementById("minRating").value;
-            const maxRating = document.getElementById("maxRating").value;
-            const resultsDiv = document.getElementById("results");
+        async function searchMovies(page=1) {
+    updatePlannerUI();  // ✅ Ensure UI updates immediately
+    const directorsFilter = selectedDirectors; 
+    const actorsFilter = selectedActors;
 
-            try {
-                const url = new URL("/search", window.location.origin);
-                if (query) url.searchParams.append("q", query);
-                if (genre) url.searchParams.append("genre", genre);
-                if (minRating) url.searchParams.append("min_rating", minRating);
-                if (maxRating) url.searchParams.append("max_rating", maxRating);
+    const query = document.getElementById("searchInput").value.trim();
+    const selectedGenres = [...document.querySelectorAll(".genre-checkbox:checked")].map(cb => cb.value);
+    const releaseDateFrom = document.getElementById("releaseDateFrom").value;
+    const releaseDateTo = document.getElementById("releaseDateTo").value;
+    const minOscars = document.getElementById("minOscars").value;
+    const minGoldenGlobes = document.getElementById("minGoldenGlobes").value;
+    const minBAFTAs = document.getElementById("minBAFTAs").value;
+    const minRuntime = document.getElementById("minRuntime").value;
+    const maxRuntime = document.getElementById("maxRuntime").value;
+    const selectedLanguages = [...document.getElementById("languageSelect").selectedOptions].map(opt => opt.value);
+    const url = new URL("/search", window.location.origin);
+    if (query) url.searchParams.append("q", query);
+    if (directorsFilter.length) url.searchParams.append("director", directorsFilter.join(","));
+    if (actorsFilter.length) url.searchParams.append("actor", actorsFilter.join(","));
+    if (selectedGenres.length) url.searchParams.append("genres", selectedGenres.join(","));
+    if (releaseDateFrom) url.searchParams.append("releaseDateFrom", releaseDateFrom);
+    if (releaseDateTo) url.searchParams.append("releaseDateTo", releaseDateTo);
+    if (minOscars) url.searchParams.append("minOscars", minOscars);
+    if (minGoldenGlobes) url.searchParams.append("minGoldenGlobes", minGoldenGlobes);
+    if (minBAFTAs) url.searchParams.append("minBAFTAs", minBAFTAs);
+    if (minRuntime) url.searchParams.append("min_runtime", minRuntime);
+    if (maxRuntime) url.searchParams.append("max_runtime", maxRuntime);
+    if (selectedLanguages.length && !selectedLanguages.includes("")) {
+        url.searchParams.append("language", selectedLanguages.join(","));
+    }
+    url.searchParams.append("page", page);
+    url.searchParams.append("page_size", 20);
+    console.log("Fetching movies from:", url.toString()); // Debug API request
 
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Failed to fetch movies.");
-                const movies = await response.json();
-                if (movies.length === 0) {
-                    resultsDiv.innerHTML = "<p class='text-danger'>No results found.</p>";
-                    return;
-                }
-                resultsDiv.innerHTML = movies.map(movie => `
-                    <div class="movie-card">
-                        <div>
-                            <h5>${movie.title}</h5>
-                            <p><strong>Genre:</strong> ${movie.genre}</p>
-                            <p><strong>Average Rating:</strong> ${movie.avg_rating.toFixed(1)}</p>
-                        </div>
-                    </div>
-                `).join("");
-            } catch (error) {
-                resultsDiv.innerHTML = `<p class='text-danger'>Error: ${error.message}</p>`;
-            }
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const movies = data.movies;
+
+
+        console.log("API Response:", movies);  // Debug received movies
+
+        const resultsContainer = document.getElementById("results");
+        resultsContainer.innerHTML = ""; // Clear previous results
+    
+
+        if (!movies||movies.length === 0) {
+            resultsContainer.innerHTML = "<p>No movies found.</p>";
+            document.getElementById("pagination").innerHTML = "";
+            updatePlannerUI(); // ✅ Ensure UI updates immediately
+            return;
         }
-
+        resultsContainer.innerHTML = movies.map(movie => {
+            let plannerHTML = "";
+            if (window.isLoggedIn) {
+                plannerHTML = `
+                    <button class="btn btn-warning mt-2" onclick="showListDropdown(this)">📅 Add to Planner</button>
+                    <select class="form-control mt-2 list-selector" style="display: none;"></select>
+                `;
+            }
+            return `<div class="movie-card">
+                    <img src="${movie.poster_url}" alt="${movie.title} Poster">
+                    <h5>${movie.title}</h5>
+                    <p><strong>Genre:</strong> ${movie.genre}</p>
+                    <p><strong>Director:</strong> ${movie.directors}</p>
+                    <p><strong>Actors:</strong> ${movie.actors}</p>
+                    <p><strong>Language:</strong> ${movie.language}</p>
+                    <p><strong>Runtime:</strong> ${movie.runtime}</p>
+                    <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
+                    ${plannerHTML}
+                </div>
+            `;
+        }).join("");
+        renderPagination(data.page, data.page_size, data.total);
+    } catch (error) {
+        console.error("Error fetching movies:", error);
+    }
+}
         // Analyze Filtered Low Rating Patterns
         async function analyzeFilteredLowRatings() {
             const userId = document.getElementById("lowUserIdInput").value.trim();
@@ -327,6 +1055,554 @@
             }
             
         }
+        const festivalLists = {}; // Stores lists with their details and movies grouped by genre
+    function renderPagination(currentPage, pageSize, totalResults) {
+    const paginationContainer = document.getElementById("pagination");
+    paginationContainer.innerHTML = ""; // Clear existing buttons
+
+    const totalPages = Math.ceil(totalResults / pageSize);
+    if (totalPages <= 1) return; // No pagination needed
+
+    // Create a "<<" button for first page
+    const firstBtn = document.createElement("button");
+    firstBtn.textContent = "<<";
+    firstBtn.className = "btn btn-secondary m-1";
+    firstBtn.disabled = currentPage === 1;
+    if (currentPage !== 1) {
+        firstBtn.onclick = () => searchMovies(1);
+    }
+    paginationContainer.appendChild(firstBtn);
+
+    // Create a "<" button for previous page
+    const prevBtn = document.createElement("button");
+    prevBtn.textContent = "<";
+    prevBtn.className = "btn btn-secondary m-1";
+    prevBtn.disabled = currentPage === 1;
+    if (currentPage !== 1) {
+        prevBtn.onclick = () => searchMovies(currentPage - 1);
+    }
+    paginationContainer.appendChild(prevBtn);
+
+    // Determine the range of numbered page buttons to display
+    if (totalPages <= 6) {
+        // If there are 6 or fewer pages, display them all.
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement("button");
+            btn.textContent = i;
+            btn.className = "btn btn-secondary m-1";
+            if (i === currentPage) {
+                btn.disabled = true;
+            } else {
+                btn.onclick = () => searchMovies(i);
+            }
+            paginationContainer.appendChild(btn);
+        }
+    } else {
+        // More than 6 pages: we display a truncated list.
+        if (currentPage <= 3) {
+            // Display pages 1-5, ellipsis, last page.
+            for (let i = 1; i <= 5; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.className = "m-1";
+            paginationContainer.appendChild(ellipsis);
+
+            const lastBtnNumber = document.createElement("button");
+            lastBtnNumber.textContent = totalPages;
+            lastBtnNumber.className = "btn btn-secondary m-1";
+            lastBtnNumber.onclick = () => searchMovies(totalPages);
+            paginationContainer.appendChild(lastBtnNumber);
+        } else if (currentPage >= totalPages - 2) {
+            // Display first page, ellipsis, then last 5 pages.
+            const firstBtnNumber = document.createElement("button");
+            firstBtnNumber.textContent = 1;
+            firstBtnNumber.className = "btn btn-secondary m-1";
+            firstBtnNumber.onclick = () => searchMovies(1);
+            paginationContainer.appendChild(firstBtnNumber);
+
+            const ellipsis = document.createElement("span");
+            ellipsis.textContent = "...";
+            ellipsis.className = "m-1";
+            paginationContainer.appendChild(ellipsis);
+
+            for (let i = totalPages - 4; i <= totalPages; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+        } else {
+            // Display first page, ellipsis, currentPage-1, currentPage, currentPage+1, ellipsis, last page.
+            const firstBtnNumber = document.createElement("button");
+            firstBtnNumber.textContent = 1;
+            firstBtnNumber.className = "btn btn-secondary m-1";
+            firstBtnNumber.onclick = () => searchMovies(1);
+            paginationContainer.appendChild(firstBtnNumber);
+
+            const ellipsis1 = document.createElement("span");
+            ellipsis1.textContent = "...";
+            ellipsis1.className = "m-1";
+            paginationContainer.appendChild(ellipsis1);
+
+            for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                const btn = document.createElement("button");
+                btn.textContent = i;
+                btn.className = "btn btn-secondary m-1";
+                if (i === currentPage) {
+                    btn.disabled = true;
+                } else {
+                    btn.onclick = () => searchMovies(i);
+                }
+                paginationContainer.appendChild(btn);
+            }
+
+            const ellipsis2 = document.createElement("span");
+            ellipsis2.textContent = "...";
+            ellipsis2.className = "m-1";
+            paginationContainer.appendChild(ellipsis2);
+
+            const lastBtnNumber = document.createElement("button");
+            lastBtnNumber.textContent = totalPages;
+            lastBtnNumber.className = "btn btn-secondary m-1";
+            lastBtnNumber.onclick = () => searchMovies(totalPages);
+            paginationContainer.appendChild(lastBtnNumber);
+        }
+    }
+
+    // Create a ">" button for next page.
+    const nextBtn = document.createElement("button");
+    nextBtn.textContent = ">";
+    nextBtn.className = "btn btn-secondary m-1";
+    nextBtn.disabled = currentPage === totalPages;
+    if (currentPage !== totalPages) {
+        nextBtn.onclick = () => searchMovies(currentPage + 1);
+    }
+    paginationContainer.appendChild(nextBtn);
+
+    // Create a ">>" button to jump to the last page.
+    const lastBtn = document.createElement("button");
+    lastBtn.textContent = ">>";
+    lastBtn.className = "btn btn-secondary m-1";
+    lastBtn.disabled = currentPage === totalPages;
+    if (currentPage !== totalPages) {
+        lastBtn.onclick = () => searchMovies(totalPages);
+    }
+    paginationContainer.appendChild(lastBtn);
+}
+
+
+    function showNewListForm() {
+        document.getElementById("newListForm").style.display = 'block';
+    }
+
+    function createNewList() {
+        const title = document.getElementById("newListTitle").value.trim();
+        const note = document.getElementById("newListNote").value.trim();
+        if (!title) {
+            alert("Please enter a title for the list.");
+            return;
+        }
+        if (festivalLists[title]) {
+            alert("A list with this title already exists.");
+            return;
+        }
+        festivalLists[title] = { note: note, genres: {} };
+        document.getElementById("newListForm").style.display = 'none';
+        updatePlannerUI();
+    }
+
+    function editList(oldTitle) {
+        const newListTitle = prompt("Enter the new title for your list", oldTitle);
+        if (newListTitle && newListTitle !== oldTitle && !festivalLists[newListTitle]) {
+            festivalLists[newListTitle] = festivalLists[oldTitle];
+            delete festivalLists[oldTitle];
+            updatePlannerUI();
+        } else if (newListTitle === oldTitle) {
+            const newNote = prompt("Edit your note:", festivalLists[oldTitle].note);
+            festivalLists[oldTitle].note = newNote;
+            updatePlannerUI();
+        } else {
+            alert("List title already exists or invalid title.");
+        }
+    }
+    function closeModal() {
+        document.getElementById('editListModal').style.display = 'none';
+    }
+
+    function toggleEditMovies(listTitle) {
+    festivalLists[listTitle].editMode = !festivalLists[listTitle].editMode; // Toggle edit mode
+    updatePlannerUI();
+}
+
+    function toggleEditList(listTitle) {
+        openEditModal(listTitle);
+    }
+
+
+    function deleteList(title) {
+        if (confirm("Are you sure you want to delete this list?")) {
+            delete festivalLists[title];
+            updatePlannerUI();
+        }
+    }
+    function removeMovieFromList(listTitle, genre, movie) {
+        const list = festivalLists[listTitle];
+        const index = list.genres[genre].indexOf(movie);
+        if (index > -1) {
+            list.genres[genre].splice(index, 1);
+            if (list.genres[genre].length === 0) {
+                delete list.genres[genre];
+            }
+            updatePlannerUI();
+        }
+    }
+    function logoutUser() {
+        fetch("/logout", { method: "POST" })  // ✅ Sends a logout request to Flask
+            .then(response => response.json())
+            .then(data => {
+                console.log("✅ Logout response:", data);  // Debugging
+                alert(data.message);  // Show logout success message
+                checkSessionStatus();  // ✅ Refresh UI after logout
+                searchMovies();
+            })
+            .catch(error => console.error("❌ Error during logout:", error));
+    }
+
+    function showListDropdown(button) {
+        const selector = button.nextElementSibling;
+        selector.innerHTML = '<option disabled selected>Select list to insert:</option>';
+        Object.keys(festivalLists).forEach(listTitle => {
+            const option = document.createElement('option');
+            option.textContent = listTitle;
+            option.value = listTitle;
+            selector.appendChild(option);
+        });
+        selector.style.display = 'block';
+        selector.onchange = function() {
+            addToPlanner(this.parentElement, this.value);
+            this.style.display = 'none';
+        };
+    }
+
+    function addToPlanner(card, listTitle) {
+        const title = card.querySelector('h5').textContent;
+        const genre = card.querySelector('p').textContent.split(': ')[1];
+        if (!festivalLists[listTitle].genres[genre]) {
+            festivalLists[listTitle].genres[genre] = [];
+        }
+        if (festivalLists[listTitle].genres[genre].includes(title)) {
+            alert("This movie is already in the list!");
+            return;
+        }
+        festivalLists[listTitle].genres[genre].push(title);
+        updatePlannerUI();
+    }
+
+    function updateListSelectors() {
+        // Call this function after adding a new list to update dropdowns in all movie cards
+        document.querySelectorAll('.list-selector').forEach(selector => {
+            const currentDisplay = selector.style.display;
+            selector.innerHTML = '<option disabled selected>Select list to insert:</option>';
+            Object.keys(festivalLists).forEach(listTitle => {
+                const option = document.createElement('option');
+                option.textContent = listTitle;
+                option.value = listTitle;
+                selector.appendChild(option);
+            });
+            selector.style.display = currentDisplay;
+        });
+    }
+    document.getElementById('editForm').onsubmit = function(event) {
+    event.preventDefault();
+    applyListChanges();
+    };
+
+    document.querySelector('.close').onclick = function() {
+        closeModal();
+    };
+
+    function openEditModal(listTitle) {
+        const modal = document.getElementById('editListModal');
+        const titleInput = document.getElementById('editListTitle');
+        const noteInput = document.getElementById('editListNote');
+
+        titleInput.value = listTitle;
+        noteInput.value = festivalLists[listTitle].note;
+
+        document.getElementById('editListForm').onsubmit = function(event) {
+            event.preventDefault();
+            applyListChanges(listTitle, titleInput.value, noteInput.value);
+        };
+
+        modal.style.display = 'block';
+    }
+    function editListDetails(listTitle) {
+    const modal = document.getElementById('editListModal');
+    const titleInput = document.getElementById('editListTitle');
+    const noteInput = document.getElementById('editListNote');
+
+    titleInput.value = listTitle;
+    noteInput.value = festivalLists[listTitle].note;
+
+    document.getElementById('editListForm').onsubmit = function(event) {
+        event.preventDefault();
+        applyListChanges(listTitle, titleInput.value, noteInput.value);
+    };
+
+    modal.style.display = 'block';
+}
+
+    function applyListChanges(oldTitle, newTitle, newNote) {
+        if (newTitle !== oldTitle && festivalLists[newTitle]) {
+            alert("A list with this title already exists.");
+            return;
+        }
+
+        if (newTitle !== oldTitle) {
+            festivalLists[newTitle] = { ...festivalLists[oldTitle], note: newNote };
+            delete festivalLists[oldTitle];
+        } else {
+            festivalLists[oldTitle].note = newNote;
+        }
+
+        closeModal();
+        updatePlannerUI();
+    }
+
+    function closeModal() {
+        document.getElementById('editListModal').style.display = 'none';
+    }
+
+
+    function updateList(newTitle, newNote, oldTitle) {
+        if (newTitle !== oldTitle && festivalLists[newTitle]) {
+            alert('List title already exists!');
+            return;
+        }
+
+        if (newTitle !== oldTitle) {
+            festivalLists[newTitle] = festivalLists[oldTitle];
+            delete festivalLists[oldTitle];
+        }
+
+        festivalLists[newTitle].note = newNote;
+        updatePlannerUI();
+    }
+    function updatePlannerUI() {
+        const plannerContent = document.getElementById("festival-planner-content");
+        if (!plannerContent) {
+            console.error("Planner content element not found!");
+            return;
+        }
+
+        const contentHtml = Object.keys(festivalLists).map(listTitle => {
+            const list = festivalLists[listTitle];
+            return `
+                <div class="card bg-dark text-white mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>${listTitle} - Note: ${list.note}</span>
+                        <div>
+                            <button class="btn btn-info btn-sm" onclick="editListDetails('${listTitle}')">Edit Title/Notes</button>
+                            <button class="btn btn-warning btn-sm" onclick="toggleEditMovies('${listTitle}')">Edit Movies</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteList('${listTitle}')">Delete</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${Object.keys(list.genres).map(genre => `
+                            <h6>${genre}</h6>
+                            <ul>
+                                ${list.genres[genre].map(movie => `
+                                    <li>
+                                        <a href="#" onclick="displayMovieDetails('${movie}')" style="color: #FFD700; text-decoration: underline;">
+                                            ${movie}
+                                        </a>
+                                        ${list.editMode ? `<button class="btn btn-sm btn-danger ms-2" onclick="removeMovieFromList('${listTitle}', '${genre}', '${movie}')">X</button>` : ""}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        plannerContent.innerHTML = contentHtml;
+
+        if (Object.keys(festivalLists).length === 0) {
+            plannerContent.innerHTML = "<p class='text-center text-white'>No lists created yet.</p>";
+        }
+    }
+
+
+    function fetchMovieDetails(title) {
+        return new Promise((resolve, reject) => {
+            fetch(`/movie_details?title=${encodeURIComponent(title)}`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();  // Parse JSON data from the response
+                }
+                throw new Error('Failed to fetch movie details');
+            })
+            .then(movieDetails => {
+                resolve(movieDetails);  // Resolve the promise with the movie details
+            })
+            .catch(error => {
+                console.error('Error fetching movie details:', error);
+                reject(error);  // Reject the promise if there is an error
+            });
+        });
+    }
+
+    function displayMovieDetails(movieTitle) {
+        fetch(`/movie_details?title=${encodeURIComponent(movieTitle)}`)
+        .then(response => response.json())
+        .then(movie => {
+            if (movie.error) {
+                alert("Movie not found.");
+                return;
+            }
+
+            const detailsCard = document.getElementById('movieDetailsCard');
+            detailsCard.innerHTML = `
+                <div class="card bg-dark text-white">
+                    <div class="card-header d-flex justify-content-between">
+                        <span>${movie.title}</span>
+                        <button class="close btn btn-danger btn-sm" onclick="closeDetails()">×</button>
+                    </div>
+                    <div class="card-body">
+                        <img src="${movie.poster_url}" class="img-fluid rounded mb-3" alt="${movie.title} Poster" style="max-width: 200px;">
+                        <p><strong>Genre:</strong> ${movie.genre}</p>
+                        <p><strong>Director:</strong> ${movie.directors}</p>
+                        <p><strong>Actors:</strong> ${movie.actors}</p>
+                        <p><strong>Runtime:</strong> ${movie.runtime}</p>
+                        <p><strong>Language:</strong> ${movie.language}</p>
+                        <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
+                        <p><strong>Rotten Tomatoes Score:</strong> ${movie.rt_score}%</p>
+                        <p><strong>Oscars Won:</strong> ${movie.oscars}</p>
+                        <p><strong>Golden Globes Won:</strong> ${movie.golden_globes}</p>
+                        <p><strong>BAFTAs Won:</strong> ${movie.baftas}</p>
+                        <p><strong>Release Date:</strong> ${movie.release_date}</p>
+                    </div>
+                </div>
+            `;
+            detailsCard.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error fetching movie details:', error);
+        });
+    }
+
+    function closeDetails() {
+        document.getElementById('movieDetailsCard').style.display = 'none';
+    }
+    // Functions to open and close modals
+    function openLoginModal() {
+        document.getElementById('loginModal').style.display = 'block';
+    }
+    function closeLoginModal() {
+        document.getElementById('loginModal').style.display = 'none';
+    }
+    function openSignupModal() {
+        var modal = document.getElementById('signupModal');
+        modal.style.display = 'block';
+
+        // Attach the event listener when the modal is opened
+        var signupForm = document.getElementById('signupForm');
+        if (signupForm) {
+            signupForm.addEventListener('submit', function(event) {
+                event.preventDefault();  // Prevent the form from submitting traditionally
+
+                console.log("🚀 Signup Form Submitted!");
+                const formData = new FormData(this);
+                
+                fetch('/signup', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Signup API Response:", data);
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        closeSignupModal();
+                        checkSessionStatus();  // Refresh UI
+                    }
+                })
+                .catch(error => console.error("❌ Error during signup:", error));
+            }, { once: true }); // Ensure the listener is added only once
+        } else {
+            console.error("❌ Signup form not found in DOM!");
+        }
+    }
+
+    function closeSignupModal() {
+        var modal = document.getElementById('signupModal');
+        modal.style.display = 'none';
+    }
+
+// Handle Login Form Submission
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        fetch('/login', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
+                closeLoginModal();
+                checkSessionStatus(); 
+            }
+        })
+        .catch(error => console.error('Error during login:', error));
+    });
+
+    // Handle Signup Form Submission
+    document.getElementById('signupForm').addEventListener('submit', function(event) {
+        event.preventDefault();  // Prevent default form submission
+
+        console.log("🚀 Signup Form Submitted!");  // Debugging
+
+        const formData = new FormData(this);
+        
+        fetch('/signup', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("✅ Signup API Response:", data);  // Debugging
+            if (data.error) {
+                alert(data.error);  // Show error message
+            } else {
+                alert(data.message);  // Show success message
+                closeSignupModal();
+                checkSessionStatus();  // Refresh UI
+            }
+        })
+        .catch(error => console.error("❌ Error during signup:", error));
+    });
 
 
 
