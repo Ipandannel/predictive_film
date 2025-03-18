@@ -129,7 +129,7 @@ def init_low_rated_summary():
 
     print("\nCalculating and inserting summary data for low ratings...")
     cursor.execute("""
-            INSERT INTO low_rated_summary (userId, low_rated_genre, other_genre, avg_other_rating, rating_count)
+            INSERT IGNORE INTO low_rated_summary (userId, low_rated_genre, other_genre, avg_other_rating, rating_count)
             SELECT lr.userId, lr.genre AS low_rated_genre, g.genre_name AS other_genre, 
                    AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
             FROM low_rated lr
@@ -196,7 +196,7 @@ def init_high_rated_summary():
 
     print("\nCalculating and inserting summary data for high ratings...")
     cursor.execute("""
-            INSERT INTO high_rated_summary (userId, high_rated_genre, other_genre, avg_other_rating, rating_count)
+            INSERT IGNORE INTO high_rated_summary (userId, high_rated_genre, other_genre, avg_other_rating, rating_count)
             SELECT lr.userId, lr.genre AS high_rated_genre, g.genre_name AS other_genre, 
                    AVG(r.rating) AS avg_other_rating, COUNT(r.rating) AS rating_count
             FROM high_rated lr
