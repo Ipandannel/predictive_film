@@ -1078,18 +1078,26 @@ def login():
 def logout():
     session.clear()
     return jsonify({"message": "Logged out successfully"}), 200
+@app.route("/import_status", methods=["GET"])
+def import_status():
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({"complete": False})
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT COUNT(*) as count FROM movies")
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    # Assuming that if there is at least one movie, the import is complete.
+    complete = result and result["count"] > 0
+    return jsonify({"complete": complete})
 
 @app.route("/check_session", methods=["GET"])
 def check_session():
     if "user_id" in session:
         return jsonify({"logged_in": True, "username": session["username"]}), 200
     return jsonify({"logged_in": False}), 200
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000,debug=True)
-
 threading.Thread(target=background_low_init, daemon=True).start()
 threading.Thread(target=background_high_init, daemon=True).start()
-
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
