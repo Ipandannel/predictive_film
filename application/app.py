@@ -1,5 +1,5 @@
 import threading
-from flask import Flask, jsonify, request, render_template, url_for
+from flask import Flask, jsonify, request, render_template, url_for,session,redirect
 import mysql.connector
 import os
 import pandas as pd
@@ -11,6 +11,8 @@ import io
 import base64
 import sys
 import time
+import bcrypt 
+from flask_session import Session
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 progress = {"low": 0, "high": 0}
@@ -85,20 +87,8 @@ def init_low_rated_summary():
         print("Low Rated Summary: Failed to connect to the database")
         return
 
-    cursor = conn.cursor()
-
-    # Start a thread to continuously print the progress bar
-    low_progress_thread = threading.Thread(target=print_progress_bar, args=("Low Rated Summary", "low"), daemon=True)
-    low_progress_thread.start()
-
-    print("\nStarting low rated summary initialization...")
-    update_progress("low", 0, 30, duration=2)  # Simulate progress 0% to 30% over 2 seconds
-
-    print("\nCreating and populating temporary table for low ratings...")
-    create_and_populate_low_rated_temp_table(conn, "WHERE r.rating < 3.0")
-    update_progress("low", 30, 50, duration=1)  # Simulate progress 30% to 50%
-
-    print("\nCreating result table for low ratings...")
+    # Create summary table if not exists and check if data already exists
+    cursor = conn.cursor(dictionary=True)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS low_rated_summary (
             userId INT,
@@ -109,6 +99,27 @@ def init_low_rated_summary():
             PRIMARY KEY (userId, low_rated_genre, other_genre)
         )
     """)
+    conn.commit()
+    cursor.execute("SELECT COUNT(*) as count FROM low_rated_summary")
+    result = cursor.fetchone()
+    if result and result["count"] > 0:
+        print("Low Rated Summary already contains data. Skipping re-import.")
+        cursor.close()
+        conn.close()
+        return
+
+    # Start a thread to continuously print the progress bar
+    low_progress_thread = threading.Thread(target=print_progress_bar, args=("Low Rated Summary", "low"), daemon=True)
+    low_progress_thread.start()
+
+    print("\nStarting low rated summary initialization...")
+    update_progress("low", 0, 30, duration=2)  # Simulate progress 0% to 30%
+
+    print("\nCreating and populating temporary table for low ratings...")
+    create_and_populate_low_rated_temp_table(conn, "WHERE r.rating < 3.0")
+    update_progress("low", 30, 50, duration=1)  # Simulate progress 30% to 50%
+
+    print("\nTruncating (empty) result table for low ratings...")
     cursor.execute("TRUNCATE TABLE low_rated_summary")
     update_progress("low", 50, 80, duration=2)  # Simulate progress 50% to 80%
 
@@ -135,7 +146,6 @@ def init_low_rated_summary():
     cursor.close()
     conn.close()
 
-
 def init_high_rated_summary():
     global progress
     progress["high"] = 0  # Reset progress for high-rated summary
@@ -144,7 +154,26 @@ def init_high_rated_summary():
         print("High Rated Summary: Failed to connect to the database")
         return
 
-    cursor = conn.cursor()
+    # Create summary table if not exists and check if data already exists
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS high_rated_summary (
+            userId INT,
+            high_rated_genre VARCHAR(255),
+            other_genre VARCHAR(255),
+            avg_other_rating FLOAT,
+            rating_count INT,
+            PRIMARY KEY (userId, high_rated_genre, other_genre)
+        )
+    """)
+    conn.commit()
+    cursor.execute("SELECT COUNT(*) as count FROM high_rated_summary")
+    result = cursor.fetchone()
+    if result and result["count"] > 0:
+        print("High Rated Summary already contains data. Skipping re-import.")
+        cursor.close()
+        conn.close()
+        return
 
     # Start a thread to continuously print the progress bar for high ratings
     high_progress_thread = threading.Thread(target=print_progress_bar, args=("High Rated Summary", "high"), daemon=True)
@@ -157,17 +186,7 @@ def init_high_rated_summary():
     create_and_populate_high_rated_temp_table(conn, "WHERE r.rating > 4.0")
     update_progress("high", 30, 50, duration=1)  # Simulate progress 30% to 50%
 
-    print("\nCreating result table for high ratings...")
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS high_rated_summary (
-            userId INT,
-            high_rated_genre VARCHAR(255),
-            other_genre VARCHAR(255),
-            avg_other_rating FLOAT,
-            rating_count INT,
-            PRIMARY KEY (userId, high_rated_genre, other_genre)
-        )
-    """)
+    print("\nTruncating (empty) result table for high ratings...")
     cursor.execute("TRUNCATE TABLE high_rated_summary")
     update_progress("high", 50, 80, duration=2)  # Simulate progress 50% to 80%
 
@@ -193,7 +212,6 @@ def init_high_rated_summary():
     print("High Rated Summary initialization complete.")
     cursor.close()
     conn.close()
-
 
 
 def create_and_populate_low_rated_temp_table(conn, condition_query, params=None):
