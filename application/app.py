@@ -343,48 +343,52 @@ def search_movies():
     """
     query_params = []
 
-    # Filter by title
     if query:
         base_query += " AND LOWER(movies.title) LIKE LOWER(%s)"
         query_params.append(f"%{query}%")
 
-    # Filter by genres
     if genres:
         base_query += """
             AND movies.movieId IN (
                 SELECT mg.movieId FROM movie_genres mg 
                 JOIN genres g ON mg.genreId = g.id 
                 WHERE g.genre_name IN ({})
-                GROUP BY mg.movieId
-                HAVING COUNT(DISTINCT g.genre_name) = %s
             )
         """.format(", ".join(["%s"] * len(genres)))
         query_params.extend(genres)
-        query_params.append(len(genres))
 
-    # Filter by director
     if director:
-        base_query += """
-            AND movies.movieId IN (
-                SELECT md.movieId FROM movie_directors md 
-                JOIN directors d ON md.director_id = d.id 
-                WHERE d.director_name LIKE %s
-            )
-        """
-        query_params.append(f"%{director}%")
+        # Split the incoming string on commas and remove extra spaces
+        directors_list = [d.strip() for d in director.split(",") if d.strip()]
+        if directors_list:
+            # Build OR conditions for each director
+            director_conditions = " OR ".join(["d.director_name LIKE %s"] * len(directors_list))
+            base_query += f"""
+                AND movies.movieId IN (
+                    SELECT md.movieId FROM movie_directors md 
+                    JOIN directors d ON md.director_id = d.id 
+                    WHERE {director_conditions}
+                )
+            """
+            # Append a parameter for each director condition
+            for d in directors_list:
+                query_params.append(f"%{d}%")
 
-    # Filter by actor
+
+    # Filter by actor with OR condition for multiple selections
     if actor:
-        base_query += """
-            AND movies.movieId IN (
-                SELECT ma.movieId FROM movie_actors ma 
-                JOIN actors a ON ma.actor_id = a.id 
-                WHERE a.actor_name LIKE %s
-            )
-        """
-        query_params.append(f"%{actor}%")
-
-    # Filter by rating
+        actors_list = [a.strip() for a in actor.split(",") if a.strip()]
+        if actors_list:
+            actor_conditions = " OR ".join(["a.actor_name LIKE %s"] * len(actors_list))
+            base_query += f"""
+                AND movies.movieId IN (
+                    SELECT ma.movieId FROM movie_actors ma 
+                    JOIN actors a ON ma.actor_id = a.id 
+                    WHERE {actor_conditions}
+                )
+            """
+            for a in actors_list:
+                query_params.append(f"%{a}%")
     if min_rating:
         base_query += " AND movies.avg_rating >= %s"
         query_params.append(float(min_rating))

@@ -925,7 +925,11 @@
                     <p><strong>Language:</strong> ${movie.language}</p>
                     <p><strong>Runtime:</strong> ${movie.runtime}</p>
                     <p><strong>IMDb Rating:</strong> ${movie.imdb_rating}</p>
-                    ${plannerHTML}
+                    <p><strong>Rotten Tomatoes Score:</strong> ${movie.rt_score}%</p>
+                    <p><strong>Oscars Won:</strong> ${movie.oscars}</p>
+                    <p><strong>Golden Globes Won:</strong> ${movie.golden_globes}</p>
+                    <p><strong>BAFTAs Won:</strong> ${movie.baftas}</p>
+                    <p><strong>Release Date:</strong> ${movie.release_date}</p>
                 </div>
             `;
         }).join("");
