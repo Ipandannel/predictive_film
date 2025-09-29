@@ -1,6 +1,6 @@
-# 🎬 COMP0022 Coursework
+# 🎬 Film Festival Application
 
-Welcome to the **COMP0022 Coursework** Web Application!
+Welcome to the **Film Festival and Film Prediction** Web Application!
 
 ## 🚀 Getting Started
 
